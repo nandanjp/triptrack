@@ -88,11 +88,19 @@ default.
 - Because **Hono is runtime-agnostic**, moving to Bun or Workers later costs a base
   image and a CI line rather than a rewrite. The hedge that justified Hono still
   applies, now pointing the other way.
-- **To confirm at step 1:** the exact esbuild `--define` wiring for the SHA, and whether
-  the distroless Node image or `node:24-alpine` gives the better size-to-debuggability
-  trade. Neither has been checked.
-- **A read-only root filesystem still wants an `emptyDir` at `/tmp`**, kept as a
-  precaution rather than a known requirement.
+- **Confirmed at step 1.** esbuild's `define` on `process.env.BUILD_VERSION` compiles the
+  SHA in, verified by `/health` reporting it out of a built image.
+  `gcr.io/distroless/nodejs24-debian12:nonroot` exists and runs as UID 65532, matching
+  the chart's `runAsUser` with no extra configuration, and the image is 52.8MB because
+  esbuild inlines the dependencies and no `node_modules` ships.
+- **No `emptyDir` at `/tmp` is needed.** Verified: the container serves and shuts down
+  cleanly under `--read-only` with no writable mount. Recorded because the opposite was
+  assumed. It may change once something writes temporary files.
+- **Local `linux/amd64` verification is not possible on this machine.** Run under
+  emulation on Apple Silicon, the image hangs before Node emits any output — port bound,
+  nothing served, SIGTERM ignored. Verify images natively on arm64 locally; CI builds
+  amd64 on a native runner, so the shipped artifact is never emulated. Mistaking this
+  for an application fault would cost real time.
 - **One deployable means the SPA cannot ship without the API.** A frontend-only change
   rebuilds everything. At this scale that is a feature — it removes version skew between
   the halves entirely.
