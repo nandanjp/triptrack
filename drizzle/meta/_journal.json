@@ -15,6 +15,13 @@
       "when": 1791145144937,
       "tag": "0001_free_bishop",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791146793296,
+      "tag": "0002_aspiring_gorilla_man",
+      "breakpoints": true
     }
   ]
 }

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, type TripDetail as Trip } from "./api.ts";
+import { Itinerary } from "./Itinerary.tsx";
 import { navigate } from "./routing.ts";
 
 export function TripDetail({ tripId }: { tripId: string }) {
@@ -128,7 +129,10 @@ export function TripDetail({ tripId }: { tripId: string }) {
 
       {error !== null && <p style={{ color: "#b00" }}>{error}</p>}
 
-      <p style={{ color: "#666", marginTop: "2rem" }}>Day-by-day itinerary arrives in step 4.</p>
+      <hr style={{ margin: "2rem 0 1rem", border: 0, borderTop: "1px solid #eee" }} />
+      <Itinerary tripId={trip.id} participantCount={trip.participants.length} />
+
+      <p style={{ color: "#666", marginTop: "2rem" }}>Bookings arrive in step 5.</p>
     </section>
   );
 }

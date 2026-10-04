@@ -54,6 +54,39 @@ export type NewTrip = {
   homeCurrency?: string;
 };
 
+export type ItineraryLocation = {
+  id: string;
+  name: string;
+  lat: number | null;
+  lng: number | null;
+  dayCount: number;
+};
+
+export type EntryKind = "activity" | "meal" | "place";
+export type EntryStatus = "planned" | "done" | "skipped" | "cancelled";
+
+export type Entry = {
+  id: string;
+  kind: EntryKind;
+  title: string;
+  startsAt: string | null;
+  status: EntryStatus;
+  notes: string | null;
+  replacedByEntryId: string | null;
+  placeId: string | null;
+  placeName: string | null;
+  attendees: { participantId: string; displayName: string }[];
+};
+
+export type Day = {
+  id: string;
+  dayNumber: number;
+  date: string | null;
+  notes: string | null;
+  locations: { id: string; name: string }[];
+  entries: Entry[];
+};
+
 export const api = {
   me: (): Promise<Account> => call<Account>("/api/auth/me"),
   register: (email: string, password: string): Promise<Account> =>
@@ -84,4 +117,47 @@ export const api = {
     call<InvitePreview>(`/api/invites/${token}`),
   acceptInvite: (token: string): Promise<{ tripId: string }> =>
     call(`/api/invites/${token}/accept`, { method: "POST" }),
+
+  locations: (tripId: string): Promise<ItineraryLocation[]> =>
+    call<ItineraryLocation[]>(`/api/trips/${tripId}/locations`),
+  addLocation: (tripId: string, name: string): Promise<ItineraryLocation> =>
+    call(`/api/trips/${tripId}/locations`, { method: "POST", body: JSON.stringify({ name }) }),
+  removeLocation: (tripId: string, locationId: string): Promise<unknown> =>
+    call(`/api/trips/${tripId}/locations/${locationId}`, { method: "DELETE" }),
+
+  days: (tripId: string): Promise<Day[]> => call<Day[]>(`/api/trips/${tripId}/days`),
+  addDay: (
+    tripId: string,
+    day: { date?: string | null; locationIds?: string[]; atDayNumber?: number },
+  ): Promise<Day> =>
+    call(`/api/trips/${tripId}/days`, { method: "POST", body: JSON.stringify(day) }),
+  patchDay: (
+    tripId: string,
+    dayId: string,
+    patch: { date?: string | null; notes?: string | null; locationIds?: string[] },
+  ): Promise<Day> =>
+    call(`/api/trips/${tripId}/days/${dayId}`, { method: "PATCH", body: JSON.stringify(patch) }),
+  removeDay: (tripId: string, dayId: string): Promise<unknown> =>
+    call(`/api/trips/${tripId}/days/${dayId}`, { method: "DELETE" }),
+  shiftDays: (tripId: string, byDays: number): Promise<unknown> =>
+    call(`/api/trips/${tripId}/days/shift`, { method: "POST", body: JSON.stringify({ byDays }) }),
+
+  addEntry: (
+    tripId: string,
+    dayId: string,
+    entry: { kind: EntryKind; title: string; startsAt?: string | null; status?: EntryStatus },
+  ): Promise<Entry> =>
+    call(`/api/trips/${tripId}/days/${dayId}/entries`, { method: "POST", body: JSON.stringify(entry) }),
+  setEntryStatus: (
+    tripId: string,
+    entryId: string,
+    status: EntryStatus,
+    replacedByEntryId?: string | null,
+  ): Promise<Entry> =>
+    call(`/api/trips/${tripId}/entries/${entryId}/status`, {
+      method: "POST",
+      body: JSON.stringify({ status, ...(replacedByEntryId === undefined ? {} : { replacedByEntryId }) }),
+    }),
+  removeEntry: (tripId: string, entryId: string): Promise<unknown> =>
+    call(`/api/trips/${tripId}/entries/${entryId}`, { method: "DELETE" }),
 };
