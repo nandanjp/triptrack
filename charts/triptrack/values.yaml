@@ -3,7 +3,7 @@ replicaCount: 1
 image:
   repository: nandanjp/triptrack
   # Rewritten by CI on every push to main. Must stay an immutable sha- tag.
-  tag: sha-fdb2d82
+  tag: sha-2cc18d8
   pullPolicy: IfNotPresent
 
 service:
