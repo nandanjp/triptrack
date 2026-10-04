@@ -8,6 +8,13 @@
       "when": 1791144381846,
       "tag": "0000_good_paper_doll",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791145144937,
+      "tag": "0001_free_bishop",
+      "breakpoints": true
     }
   ]
 }

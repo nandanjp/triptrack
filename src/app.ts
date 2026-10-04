@@ -1,6 +1,8 @@
 import { Hono } from "hono";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { authRoutes } from "./auth/routes.ts";
+import { inviteRoutes } from "./trips/invite-routes.ts";
+import { tripRoutes } from "./trips/routes.ts";
 import { BUILD_VERSION } from "./config.ts";
 import { isReady } from "./readiness.ts";
 
@@ -24,6 +26,9 @@ export function createApp(options: AppOptions = {}): Hono {
   );
 
   app.route("/api/auth", authRoutes);
+  app.route("/api/trips", tripRoutes);
+  // Mounted outside /api/trips because the preview must work when signed out.
+  app.route("/api/invites", inviteRoutes);
 
   // Ahead of the static handler, so an unknown API path answers as an API
   // rather than being handed the SPA's index.html with a 200.
