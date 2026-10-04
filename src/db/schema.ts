@@ -81,9 +81,25 @@ export const trips = pgTable(
      * for a mistake.
      */
     settledAt: timestamp("settled_at", { withTimezone: true }),
+    /**
+     * A public, read-only link to the itinerary. Null means not shared.
+     *
+     * Stored in the clear, unlike an invite token, and the difference is
+     * deliberate: an invite grants membership and is used once, so only its
+     * hash is kept. A share link grants nothing but reading a money-free
+     * itinerary, and has to stay re-copyable — an owner who sent it to family
+     * should not have to invalidate theirs to see it again. See ADR-0011.
+     */
+    shareToken: text("share_token"),
+    sharedAt: timestamp("shared_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [index("trips_created_by_idx").on(table.createdByUserId)],
+  (table) => [
+    index("trips_created_by_idx").on(table.createdByUserId),
+    uniqueIndex("trips_share_token_unique")
+      .on(table.shareToken)
+      .where(sql`share_token is not null`),
+  ],
 );
 
 /**

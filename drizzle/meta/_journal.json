@@ -43,6 +43,13 @@
       "when": 1791150208266,
       "tag": "0005_special_invisible_woman",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791153360928,
+      "tag": "0006_flat_hellcat",
+      "breakpoints": true
     }
   ]
 }

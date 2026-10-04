@@ -1,18 +1,20 @@
 import { useCallback, useEffect, useState } from "react";
-import { ChevronLeft, MoreHorizontal } from "lucide-react";
+import { ChevronLeft, Link2, MoreHorizontal } from "lucide-react";
 import { api, type TripDetail as Trip } from "./api.ts";
 import { Bookings } from "./Bookings.tsx";
 import { Expenses } from "./Expenses.tsx";
 import { Itinerary } from "./Itinerary.tsx";
 import { People } from "./People.tsx";
 import { Settlement } from "./Settlement.tsx";
+import { ShareDialog } from "./ShareDialog.tsx";
 import { navigate } from "./routing.ts";
-import { Badge } from "@/ui/badge.tsx";
 import { Button } from "@/ui/button.tsx";
+import { Badge } from "@/ui/badge.tsx";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/ui/dropdown-menu.tsx";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/tabs.tsx";
@@ -31,6 +33,7 @@ export function TripDetail({ tripId, onTripChanged }: { tripId: string; onTripCh
   /** Bumped when a change in one tab alters what another one shows. */
   const [version, setVersion] = useState(0);
   const bump = useCallback(() => setVersion((v) => v + 1), []);
+  const [shareOpen, setShareOpen] = useState(false);
 
   const load = useCallback(() => {
     api
@@ -73,6 +76,12 @@ export function TripDetail({ tripId, onTripChanged }: { tripId: string; onTripCh
             <span>{dates}</span>
             <span>{trip.homeCurrency}</span>
             {trip.status !== "planning" && <Badge variant="secondary">{trip.status}</Badge>}
+            {trip.share !== null && (
+              <Badge variant="outline" className="gap-1">
+                <Link2 className="size-3" />
+                shared
+              </Badge>
+            )}
           </p>
         </div>
 
@@ -84,6 +93,11 @@ export function TripDetail({ tripId, onTripChanged }: { tripId: string; onTripCh
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              <DropdownMenuItem onSelect={() => setShareOpen(true)}>
+                <Link2 />
+                {trip.share === null ? "Share itinerary" : "Sharing settings"}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
               <DropdownMenuItem
                 variant="destructive"
                 onSelect={() => {
@@ -99,6 +113,14 @@ export function TripDetail({ tripId, onTripChanged }: { tripId: string; onTripCh
           </DropdownMenu>
         )}
       </div>
+
+      <ShareDialog
+        tripId={trip.id}
+        share={trip.share}
+        open={shareOpen}
+        onOpenChange={setShareOpen}
+        onChange={bump}
+      />
 
       <Tabs defaultValue="days" className="mt-7">
         <TabsList variant="line" className="w-full justify-start border-b">

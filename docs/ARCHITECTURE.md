@@ -37,6 +37,7 @@ browser
               │                expenses · shares · totals by currency
               │                balances · settlement plan · recorded payments
               ├── /api/invites/*  preview (public) · accept · revoke
+              ├── /api/shared/*   a read-only itinerary, no account needed
               ├── /api/*       404 as JSON, never the SPA
               ├── /*           React SPA, served as static assets
               └── /health*     startup · readiness · liveness
@@ -139,6 +140,13 @@ unique indexes — Postgres checks those per row during an UPDATE, so an overlap
 move fails partway. Day numbers pass through negatives, dates park 100,000 days out, both
 inside a transaction. ADR-0007 has the reasoning and the alternatives.
 
+**A trip can carry one public share link**, which exposes the itinerary and nothing
+transactional: no expenses, balances or settlements, no bookings, no participants, no
+entry notes. The narrowing is done by selecting the columns the public view wants rather
+than by stripping a full object, so a column added later is absent by default instead of
+leaking by default. Unlike an invite token this one is stored in the clear, because it
+has to stay re-copyable; ADR-0011 explains why the two differ.
+
 **Only a hash of each invite token is stored**, so a database leak yields no working
 invites. The plaintext is returned once, when the link is issued, and is not retrievable
 afterwards. Unlike a password this needs no salt or KDF: the token is 256 bits of CSPRNG
@@ -196,6 +204,9 @@ consumer:
   degraded feature into a total outage.
 - **No offline support and no concurrent-edit merging.** Both deferred in `DOMAIN.md`.
   Offline is the expensive one to add later, since it changes the sync model.
+- **A share link is a bearer credential with no expiry.** It works until an owner
+  revokes it, and forwarding it is not something the application can prevent. The trade
+  is deliberate: a link sent to family should not stop working mid-trip. See ADR-0011.
 - **Invite links are bearer credentials.** Anyone holding one gains trip access. Expiry
   (14 days), revocation and single use are implemented, and each link is bound to one
   participant seat — but a link pasted into a group chat is still a link anyone in that
@@ -256,4 +267,5 @@ here.
 | 0007 | Bulk day moves pass through non-colliding values |
 | 0008 | An expense edit that moves money must restate the split |
 | 0009 | Derived balances, greedy simplification, lock rather than version |
-| 0010 | Tailwind with hand-owned shadcn-style components and a token layer |
+| 0010 | Tailwind with shadcn components and a token layer |
+| 0011 | Public share links carry the itinerary and nothing transactional |

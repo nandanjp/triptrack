@@ -6,6 +6,7 @@ import { expenseRoutes } from "./expenses/routes.ts";
 import { settlementRoutes } from "./expenses/settlement-routes.ts";
 import { itineraryRoutes } from "./itinerary/routes.ts";
 import { inviteRoutes } from "./trips/invite-routes.ts";
+import { shareRoutes } from "./trips/share-routes.ts";
 import { tripRoutes } from "./trips/routes.ts";
 import { BUILD_VERSION } from "./config.ts";
 import { isReady } from "./readiness.ts";
@@ -37,6 +38,8 @@ export function createApp(options: AppOptions = {}): Hono {
   app.route("/api/trips", settlementRoutes);
   // Mounted outside /api/trips because the preview must work when signed out.
   app.route("/api/invites", inviteRoutes);
+  // Public by design: a read-only itinerary for anyone holding the link.
+  app.route("/api/shared", shareRoutes);
 
   // Ahead of the static handler, so an unknown API path answers as an API
   // rather than being handed the SPA's index.html with a 200.

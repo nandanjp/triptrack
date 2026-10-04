@@ -38,7 +38,36 @@ export type Participant = {
   hasAccount: boolean;
 };
 
+export type SharedEntry = {
+  kind: EntryKind;
+  title: string;
+  startsAt: string | null;
+  status: EntryStatus;
+  placeName: string | null;
+  replaced: boolean;
+};
+
+/** The public view: itinerary only, nothing transactional. */
+export type SharedTrip = {
+  name: string;
+  startDate: string | null;
+  endDate: string | null;
+  status: string;
+  areas: { name: string; dayCount: number }[];
+  days: {
+    dayNumber: number;
+    date: string | null;
+    notes: string | null;
+    locations: string[];
+    entries: SharedEntry[];
+  }[];
+};
+
+export type TripShare = { url: string; sharedAt: string | null };
+
 export type TripDetail = TripSummary & {
+  /** Present for owners once sharing is on, so the link stays re-copyable. */
+  share: TripShare | null;
   /** The caller's own seat, for defaulting who paid. */
   myParticipantId: string;
   participants: Participant[];
@@ -218,6 +247,12 @@ export const api = {
     call<InvitePreview>(`/api/invites/${token}`),
   acceptInvite: (token: string): Promise<{ tripId: string }> =>
     call(`/api/invites/${token}/accept`, { method: "POST" }),
+
+  sharedTrip: (token: string): Promise<SharedTrip> => call<SharedTrip>(`/api/shared/${token}`),
+  startSharing: (tripId: string): Promise<TripShare> =>
+    call(`/api/trips/${tripId}/share`, { method: "POST" }),
+  stopSharing: (tripId: string): Promise<unknown> =>
+    call(`/api/trips/${tripId}/share`, { method: "DELETE" }),
 
   locations: (tripId: string): Promise<ItineraryLocation[]> =>
     call<ItineraryLocation[]>(`/api/trips/${tripId}/locations`),

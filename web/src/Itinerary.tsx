@@ -22,11 +22,19 @@ import {
 import { cn } from "cn";
 import { Badge } from "@/ui/badge.tsx";
 import { Button } from "@/ui/button.tsx";
-import { LabeledCheckbox } from "@/components/labeled-checkbox.tsx";
-import { OptionSelect } from "@/components/option-select.tsx";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "@/ui/dropdown-menu.tsx";
 import { Input } from "@/ui/input.tsx";
 import { Empty, Panel, PanelBody, PanelHeader } from "@/components/section.tsx";
 import { ListPlaceholder } from "@/components/placeholders.tsx";
+import { OptionSelect } from "@/components/option-select.tsx";
 
 const KIND_LABEL: Record<EntryKind, string> = { activity: "Activity", meal: "Meal", place: "Place" };
 
@@ -243,53 +251,99 @@ export function Itinerary({
                       </div>
                     </div>
 
-                    <div className="mt-2 grid gap-1.5 text-sm">
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <BedDouble className="size-3.5 shrink-0 text-subtle" />
-                        <OptionSelect
-                          aria-label="Where you sleep tonight"
-                          size="sm"
-                          className="w-auto min-w-44"
-                          value={day.lodging?.id ?? NOWHERE}
-                          onValueChange={(value) =>
-                            act(() => api.setDayLodging(tripId, day.id, value === NOWHERE ? null : value))
-                          }
-                          options={[
-                            { value: NOWHERE, label: "Nowhere booked" },
-                            ...lodgings.map((b) => ({
-                              value: b.id,
-                              label: b.status === "booked" ? b.title : `${b.title} (${b.status})`,
-                            })),
-                          ]}
-                        />
-                      </div>
+                    {/*
+                      Both of these used to be form controls repeated on every
+                      day — a select and a checkbox per trip-wide booking —
+                      which read as a form rather than an itinerary. They are
+                      now the answer in plain text, with the control behind it.
+                    */}
+                    <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button
+                            type="button"
+                            className="flex items-center gap-1.5 rounded-md px-1 py-0.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                          >
+                            <BedDouble className="size-3.5 shrink-0 text-subtle" />
+                            {day.lodging === null ? (
+                              <span className="text-subtle">Add where you sleep</span>
+                            ) : (
+                              <span className="text-foreground">
+                                {day.lodging.title}
+                                {day.lodging.status !== "booked" && ` (${day.lodging.status})`}
+                              </span>
+                            )}
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start">
+                          <DropdownMenuLabel>Where you sleep tonight</DropdownMenuLabel>
+                          <DropdownMenuRadioGroup
+                            value={day.lodging?.id ?? NOWHERE}
+                            onValueChange={(value) =>
+                              act(() => api.setDayLodging(tripId, day.id, value === NOWHERE ? null : value))
+                            }
+                          >
+                            <DropdownMenuRadioItem value={NOWHERE}>Nowhere booked</DropdownMenuRadioItem>
+                            {lodgings.map((b) => (
+                              <DropdownMenuRadioItem key={b.id} value={b.id}>
+                                {b.title}
+                                {b.status !== "booked" && ` (${b.status})`}
+                              </DropdownMenuRadioItem>
+                            ))}
+                          </DropdownMenuRadioGroup>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
 
                       {travel.length > 0 && (
-                        <div className="flex flex-wrap items-center gap-x-1 gap-y-0.5">
-                          <Plane className="size-3.5 shrink-0 text-subtle" />
-                          {travel.map((b) => {
-                            const on = day.bookings.some((d) => d.id === b.id);
-                            return (
-                              <LabeledCheckbox
-                                key={b.id}
-                                checked={on}
-                                onCheckedChange={() =>
-                                  act(() =>
-                                    api.setDayBookings(
-                                      tripId,
-                                      day.id,
-                                      on
-                                        ? day.bookings.filter((d) => d.id !== b.id).map((d) => d.id)
-                                        : [...day.bookings.map((d) => d.id), b.id],
-                                    ),
-                                  )
-                                }
-                              >
-                                <span className={on ? "text-foreground" : "text-muted-foreground"}>{b.title}</span>
-                              </LabeledCheckbox>
-                            );
-                          })}
-                        </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button
+                              type="button"
+                              className={cn(
+                                "flex items-center gap-1.5 rounded-md px-1 py-0.5 text-muted-foreground transition-opacity transition-colors hover:bg-accent hover:text-foreground",
+                                // Absent entirely on a day with no travel —
+                                // which is most of them — rather than leaving a
+                                // stray icon behind. Still reachable by keyboard.
+                                day.bookings.length === 0 &&
+                                  "opacity-0 group-hover/day:opacity-100 focus-visible:opacity-100",
+                              )}
+                            >
+                              <Plane className="size-3.5 shrink-0 text-subtle" />
+                              {day.bookings.length === 0 ? (
+                                <span className="text-subtle">Add travel</span>
+                              ) : (
+                                <span className="text-foreground">
+                                  {day.bookings.map((b) => b.title).join(", ")}
+                                </span>
+                              )}
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="start">
+                            <DropdownMenuLabel>Travel used today</DropdownMenuLabel>
+                            {travel.map((b) => {
+                              const on = day.bookings.some((d) => d.id === b.id);
+                              return (
+                                <DropdownMenuCheckboxItem
+                                  key={b.id}
+                                  checked={on}
+                                  onCheckedChange={() =>
+                                    act(() =>
+                                      api.setDayBookings(
+                                        tripId,
+                                        day.id,
+                                        on
+                                          ? day.bookings.filter((d) => d.id !== b.id).map((d) => d.id)
+                                          : [...day.bookings.map((d) => d.id), b.id],
+                                      ),
+                                    )
+                                  }
+                                >
+                                  {b.title}
+                                </DropdownMenuCheckboxItem>
+                              );
+                            })}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       )}
                     </div>
 
