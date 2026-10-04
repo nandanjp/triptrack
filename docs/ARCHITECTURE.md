@@ -30,10 +30,14 @@ One deployable. One image, one pod, one hostname.
 browser
   └── Traefik (Cloudflare Tunnel, triptrack.nandan-hl.dev)
         └── TripTrack  ── Hono on Node, :8080
-              ├── /api/*    Hono route handlers
-              ├── /*        React SPA, served as static assets
-              └── /health*  startup · readiness · liveness
-                    └── Postgres (in-cluster, local-path PVC)
+              ├── /api/auth/*  register · login · logout · me
+              ├── /api/*       404 as JSON, never the SPA
+              ├── /*           React SPA, served as static assets
+              └── /health*     startup · readiness · liveness
+
+  init container (same image, `dist/migrate.js`) runs Drizzle migrations to
+  completion before the application container starts — see ADR-0006
+        └── Postgres (in-cluster StatefulSet, local-path PVC, uid 70)
 ```
 
 The React bundle is built in CI and served by the same Hono process, so the SPA and the
@@ -72,7 +76,8 @@ settlement history have no copy anywhere else, and `local-path` is node-local an
 unreplicated. **A backup job is required, not optional, and until it exists this is
 outstanding debt** — recorded below as an accepted risk, not a solved problem.
 
-Migrations are Drizzle migrations. Because the rollout runs `maxUnavailable: 0` with
+Migrations are Drizzle migrations, applied by an init container (ADR-0006). Because the
+rollout runs `maxUnavailable: 0` with
 `maxSurge: 1`, an old and a new pod overlap briefly, so a migration must be
 backward-compatible for the length of a rollout — expand, deploy, contract. A migration
 that drops or renames a column in one step breaks the pod still serving traffic.
@@ -138,6 +143,12 @@ consumer:
   Offline is the expensive one to add later, since it changes the sync model.
 - **Invite links are bearer credentials.** Anyone holding one gains trip access, so
   expiry and revocation are part of the step that introduces them. See ADR-0005.
+- **There is no way to revoke one stolen session.** Sessions are signed cookies with no
+  server-side table, so the only remedy is rotating `SESSION_SECRET`, which signs
+  everyone out. A sessions table is an additive change if that stops being acceptable.
+- **Postgres runs with a writable root filesystem**, unlike the application container.
+  Writing is its job, and mounting an `emptyDir` over each path it needs buys little on
+  a single node. It keeps `runAsNonRoot`, uid 70 and all capabilities dropped.
 - **No email, therefore no self-service password reset.** See ADR-0005.
 - **TypeScript syntax is constrained by Node's type stripping.** Verified: `enum`
   throws `ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX`, so every status, kind and role in
@@ -159,3 +170,4 @@ here.
 | 0003 | Node, Hono and Drizzle, with the React SPA in the same deployable |
 | 0004 | Postgres in-cluster, rather than SQLite |
 | 0005 | Shareable invite links, and no email in the system |
+| 0006 | Migrations from an init container, not the application process |

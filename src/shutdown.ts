@@ -23,10 +23,17 @@ type DrainableServer = {
  * Handled in-process because the distroless image has no shell, so a preStop
  * `exec: sleep` hook is not available.
  */
+export type ShutdownOptions = {
+  /** Released after the listener closes, so in-flight requests keep their pool. */
+  cleanup?: () => Promise<void>;
+  log?: (message: string) => void;
+};
+
 export function installShutdownHandlers(
   server: DrainableServer,
-  log: (message: string) => void = console.log,
+  options: ShutdownOptions = {},
 ): void {
+  const log = options.log ?? console.log;
   let shuttingDown = false;
 
   const shutdown = async (signal: string): Promise<void> => {
@@ -52,6 +59,10 @@ export function installShutdownHandlers(
       log(`in-flight requests exceeded ${SHUTDOWN_TIMEOUT_MS}ms: forcing close`);
       server.closeAllConnections?.();
     }
+
+    // After the listener is closed, so a request in flight still has its
+    // connection pool while it finishes.
+    await options.cleanup?.();
 
     log("shutdown complete");
     process.exit(0);

@@ -29,3 +29,37 @@ rollout:
   # Must exceed the drain plus shutdown budget in src/config.ts, which
   # test/shutdown-budget.test.ts asserts against this value.
   terminationGracePeriodSeconds: 30
+
+env:
+  # Not derivable from the request: cloudflared forwards plain HTTP, so
+  # X-Forwarded-Proto says http on a request that arrived over TLS. Decides
+  # whether the session cookie is marked Secure.
+  publicScheme: https
+
+# Created out of band with kubectl, never committed. See DEPLOY.md.
+secrets:
+  existingSecret: triptrack
+  keys:
+    databaseUrl: database-url
+    sessionSecret: session-secret
+    postgresPassword: postgres-password
+
+postgres:
+  image: postgres:17-alpine
+  database: triptrack
+  user: triptrack
+  # Verified: postgres:17-alpine runs as uid 70, unlike the Debian variant's
+  # 999. fsGroup must match, or the PVC mounts unwritable and Postgres fails
+  # with a permission error that reads like a database bug.
+  uid: 70
+  storage:
+    size: 8Gi
+    # Empty means the cluster default (local-path on k3s).
+    className: ""
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 1000m
+      memory: 512Mi

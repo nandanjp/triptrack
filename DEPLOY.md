@@ -67,6 +67,37 @@ kubectl -n argocd label secret triptrack-repo \
 rm -f ./argocd-triptrack ./argocd-triptrack.pub
 ```
 
+### 3b. Create the application secret
+
+Three keys, created out of band and never committed. Note that the password appears
+twice — once alone for Postgres's own `POSTGRES_PASSWORD`, and once inside the
+connection string the application reads. That duplication is deliberate: composing the
+URL in the chart would mean interpolating a secret value into an env var, which
+Kubernetes cannot do.
+
+```sh
+PG_PASSWORD="$(openssl rand -base64 32 | tr -d '/+=' | head -c 40)"
+SESSION_SECRET="$(openssl rand -base64 48)"
+
+kubectl create namespace triptrack --dry-run=client -o yaml | kubectl apply -f -
+
+kubectl -n triptrack create secret generic triptrack \
+  --from-literal=postgres-password="$PG_PASSWORD" \
+  --from-literal=session-secret="$SESSION_SECRET" \
+  --from-literal=database-url="postgres://triptrack:${PG_PASSWORD}@triptrack-postgres:5432/triptrack"
+```
+
+To add or change one key later, use `patch` — `create` fails if the secret exists, and
+`create --dry-run | apply` silently drops every other key:
+
+```sh
+kubectl -n triptrack patch secret triptrack -p '{"stringData":{"session-secret":"..."}}'
+kubectl -n triptrack rollout restart deploy/triptrack
+```
+
+The restart is required, not optional: **env-injected secrets are read once at process
+start.** Rotating `session-secret` also signs every user out (ADR-0005).
+
 ### 4. Register the application
 
 Argo CD is **shared and installed by `../dramadive`**. This repo contributes exactly one
