@@ -1,0 +1,101 @@
+# In-cluster Postgres on local-path. ADR-0004 records why this is a server
+# rather than SQLite, and that the data has no copy anywhere else — a backup
+# job is outstanding debt, not a solved problem.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Chart.Name }}-postgres
+  labels:
+    app: {{ .Chart.Name }}-postgres
+spec:
+  # Headless: a StatefulSet needs stable DNS, and nothing load-balances a
+  # single database.
+  clusterIP: None
+  selector:
+    app: {{ .Chart.Name }}-postgres
+  ports:
+    - port: 5432
+      targetPort: 5432
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Chart.Name }}-postgres
+  labels:
+    app: {{ .Chart.Name }}-postgres
+spec:
+  serviceName: {{ .Chart.Name }}-postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Chart.Name }}-postgres
+  template:
+    metadata:
+      labels:
+        app: {{ .Chart.Name }}-postgres
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: {{ .Values.postgres.uid }}
+        runAsGroup: {{ .Values.postgres.uid }}
+        # A PVC mounts root-owned; without this the non-root process cannot write.
+        fsGroup: {{ .Values.postgres.uid }}
+        fsGroupChangePolicy: OnRootMismatch
+      containers:
+        - name: postgres
+          image: {{ .Values.postgres.image }}
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              value: {{ .Values.postgres.database | quote }}
+            - name: POSTGRES_USER
+              value: {{ .Values.postgres.user | quote }}
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.existingSecret }}
+                  key: {{ .Values.secrets.keys.postgresPassword }}
+            # A subdirectory of the mount, so initdb has somewhere to create
+            # rather than having to own the mountpoint itself.
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", {{ .Values.postgres.user | quote }}, "-d", {{ .Values.postgres.database | quote }}]
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", {{ .Values.postgres.user | quote }}, "-d", {{ .Values.postgres.database | quote }}]
+            periodSeconds: 15
+            timeoutSeconds: 3
+            failureThreshold: 4
+          resources:
+            {{- toYaml .Values.postgres.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            # Deliberately writable, unlike the application container: Postgres
+            # writes to its socket directory and temporary files, and mounting
+            # emptyDirs over each of those buys little on a single node.
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop: ["ALL"]
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+        annotations:
+          # Holds the only copy of this data; never prune on a rename.
+          argocd.argoproj.io/sync-options: Prune=false
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        {{- with .Values.postgres.storage.className }}
+        storageClassName: {{ . | quote }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.postgres.storage.size }}

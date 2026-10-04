@@ -19,8 +19,11 @@ RUN VERSION="$VERSION" npm run build
 FROM gcr.io/distroless/nodejs24-debian12:nonroot AS production
 WORKDIR /app
 ENV NODE_ENV=production
-# Only the bundle and the built SPA: dependencies are inlined by esbuild, so
+# Only the bundles and the built SPA: dependencies are inlined by esbuild, so
 # there is no node_modules in the image.
 COPY --from=build /app/dist ./dist
+# Drizzle migrations are SQL files read at runtime by the init container, so
+# unlike code they cannot be bundled.
+COPY --from=build /app/drizzle ./drizzle
 EXPOSE 8080
 CMD ["dist/server.js"]

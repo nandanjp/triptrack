@@ -25,6 +25,27 @@ spec:
         app: {{ .Chart.Name }}
     spec:
       terminationGracePeriodSeconds: {{ .Values.rollout.terminationGracePeriodSeconds }}
+      # Migrations run to completion before the application container starts,
+      # so a failed migration fails the rollout rather than serving against a
+      # schema the code does not expect. See ADR-0006.
+      initContainers:
+        - name: migrate
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args: ["dist/migrate.js"]
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.existingSecret }}
+                  key: {{ .Values.secrets.keys.databaseUrl }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
       containers:
         - name: app
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
@@ -34,6 +55,18 @@ spec:
           env:
             - name: PORT
               value: {{ .Values.service.port | quote }}
+            - name: PUBLIC_SCHEME
+              value: {{ .Values.env.publicScheme | quote }}
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.existingSecret }}
+                  key: {{ .Values.secrets.keys.databaseUrl }}
+            - name: SESSION_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.existingSecret }}
+                  key: {{ .Values.secrets.keys.sessionSecret }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           # Gates the other two, so neither needs an initialDelaySeconds guess.

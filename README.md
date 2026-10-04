@@ -10,7 +10,7 @@ Built lean, one deployable step at a time. The delivery pipeline lands with the
 skeleton in step 1, so every feature after it goes out through a mechanism already
 watched working.
 
-- [ ] **1 — GitOps and walking skeleton.** Health, readiness and liveness endpoints
+- [x] **1 — GitOps and walking skeleton.** Health, readiness and liveness endpoints
       and a minimal SPA shell showing the build version, plus the whole delivery
       pipeline: Helm chart, Argo CD Application, image build that pins its own tag,
       graceful shutdown and the rollout strategy. **This one deploys.** Proven by

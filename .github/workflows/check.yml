@@ -1,0 +1,65 @@
+# Typecheck and tests, on pull requests as well as main. Kept separate from
+# docker.yml so the proven build-and-pin pipeline is not disturbed.
+name: Check
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Typecheck & Test
+    runs-on: ubuntu-latest
+
+    services:
+      # The auth tests exercise the real unique constraint, which a fake cannot
+      # encode. Without this they would skip silently and prove nothing.
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: triptrack_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgres://postgres:ci@localhost:5432/triptrack_test
+      SESSION_SECRET: ci-session-secret
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run typecheck
+
+      - name: Apply migrations
+        run: node src/db/migrate.ts
+
+      - name: Test
+        run: npm test
+
+      - name: Fail if the database tests skipped
+        # A missing DATABASE_URL skips them rather than failing, which is right
+        # locally and wrong here. Without this guard CI could go green having
+        # proven nothing about the queries.
+        run: |
+          set -euo pipefail
+          if npm test 2>&1 | grep -qE "^. skipped [1-9]"; then
+            echo "::error::database-backed tests skipped in CI"
+            exit 1
+          fi

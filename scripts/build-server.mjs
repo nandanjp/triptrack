@@ -3,9 +3,7 @@ import { build } from "esbuild";
 // Compiled in rather than read at runtime, so the artifact describes itself.
 const version = process.env.VERSION ?? "dev";
 
-await build({
-  entryPoints: ["src/index.ts"],
-  outfile: "dist/server.js",
+const shared = {
   bundle: true,
   platform: "node",
   target: "node24",
@@ -17,6 +15,12 @@ await build({
   banner: {
     js: "import{createRequire as __cr}from'node:module';const require=__cr(import.meta.url);",
   },
-});
+};
 
-console.log(`bundled dist/server.js (version ${version})`);
+await build({ ...shared, entryPoints: ["src/index.ts"], outfile: "dist/server.js" });
+
+// Separate entrypoint: the init container runs this and exits before the
+// application container starts. See ADR-0006.
+await build({ ...shared, entryPoints: ["src/db/migrate.ts"], outfile: "dist/migrate.js" });
+
+console.log(`bundled dist/server.js and dist/migrate.js (version ${version})`);
