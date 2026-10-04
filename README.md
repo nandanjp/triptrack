@@ -28,7 +28,7 @@ watched working.
       Per-night lodging selection on a day, and many-to-many transit and event links.
 - [x] **6 — Expenses.** Per-day, per-booking and per-entry costs with shares, the
       payer-holds-remainder rule, private spend, and totals grouped by currency.
-- [ ] **7 — Settlement.** Derived per-participant balances, a simplified settlement
+- [x] **7 — Settlement.** Derived per-participant balances, a simplified settlement
       plan, recorded settlements, and the lock that makes expenses immutable once
       settled. Kept behind its own module boundary — this is the scope risk.
 - [ ] **8 — Photos.** Resolves the deferred storage decision (Garage versus a PVC),

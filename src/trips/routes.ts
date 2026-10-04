@@ -14,6 +14,7 @@ import {
 } from "../db/schema.ts";
 import { membershipFor, tripNotFound } from "./authorize.ts";
 import { issueToken } from "./invite-token.ts";
+import { newShareToken, shareUrlFor } from "./share-routes.ts";
 
 /** ISO 8601 calendar date. Local dates, never instants — see DOMAIN.md. */
 const localDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "expected YYYY-MM-DD");
@@ -168,8 +169,17 @@ export const tripRoutes = new Hono<AuthenticatedEnv>()
 
     // Which seat is the caller's, so the client can default "paid by" to it
     // without being told who occupies the others.
+    const isOwner = membership.role === "owner";
+
     return c.json({
       ...trip,
+      // The raw token is an owner's business only; members can already see
+      // everything it exposes, but they cannot hand it out.
+      shareToken: undefined,
+      share:
+        isOwner && trip.shareToken !== null
+          ? { url: shareUrlFor(c.req.header("host") ?? "", trip.shareToken), sharedAt: trip.sharedAt }
+          : null,
       role: membership.role,
       myParticipantId: membership.participantId,
       participants,
@@ -319,6 +329,37 @@ export const tripRoutes = new Hono<AuthenticatedEnv>()
       .returning();
 
     return c.json(updated);
+  })
+
+  /**
+   * Turns on public read-only sharing, or rotates the link if it is already
+   * on. Rotating invalidates whatever was sent before, which is the only way
+   * to take a link back.
+   */
+  .post("/:tripId/share", async (c) => {
+    const tripId = c.req.param("tripId");
+    const membership = await membershipFor(tripId, c.get("userId"));
+    if (membership === undefined) return tripNotFound(c);
+    if (membership.role !== "owner") return c.json({ error: "owner only" }, 403);
+
+    const shareToken = newShareToken();
+    const [updated] = await getDb()
+      .update(trips)
+      .set({ shareToken, sharedAt: new Date() })
+      .where(eq(trips.id, tripId))
+      .returning({ sharedAt: trips.sharedAt });
+
+    return c.json({ url: shareUrlFor(c.req.header("host") ?? "", shareToken), sharedAt: updated?.sharedAt ?? null });
+  })
+
+  .delete("/:tripId/share", async (c) => {
+    const tripId = c.req.param("tripId");
+    const membership = await membershipFor(tripId, c.get("userId"));
+    if (membership === undefined) return tripNotFound(c);
+    if (membership.role !== "owner") return c.json({ error: "owner only" }, 403);
+
+    await getDb().update(trips).set({ shareToken: null, sharedAt: null }).where(eq(trips.id, tripId));
+    return c.body(null, 204);
   })
 
   /**

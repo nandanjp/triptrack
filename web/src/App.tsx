@@ -4,6 +4,7 @@ import { api, type Account, type TripSummary } from "./api.ts";
 import { AuthScreen } from "./AuthScreen.tsx";
 import { InvitePage } from "./InvitePage.tsx";
 import { NewTripDialog } from "./NewTripDialog.tsx";
+import { SharedTrip } from "./SharedTrip.tsx";
 import { Sidebar } from "./Sidebar.tsx";
 import { TripDetail } from "./TripDetail.tsx";
 import { TripsHome } from "./TripsHome.tsx";
@@ -38,7 +39,12 @@ export function App() {
       .finally(() => setChecked(true));
   }, [loadTrips]);
 
+  const shareToken = path.startsWith("/s/") ? path.slice("/s/".length) : null;
   const inviteToken = path.startsWith("/invite/") ? path.slice("/invite/".length) : null;
+
+  // Public, and ahead of the auth gate: the whole point is that a reader
+  // needs no account.
+  if (shareToken !== null) return <SharedTrip token={shareToken} />;
   const tripId = path.startsWith("/trips/") ? path.slice("/trips/".length) : null;
 
   // An invite is readable before signing in, so it is routed ahead of the
