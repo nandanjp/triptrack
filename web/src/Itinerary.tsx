@@ -1,35 +1,58 @@
 import { useEffect, useState } from "react";
-import { api, type Booking, type Day, type Entry, type EntryKind, type ItineraryLocation } from "./api.ts";
+import {
+  BedDouble,
+  Ban,
+  CalendarPlus,
+  Check,
+  Circle,
+  CornerDownRight,
+  Plane,
+  Plus,
+  Trash2,
+} from "lucide-react";
+import {
+  api,
+  type Booking,
+  type Day,
+  type Entry,
+  type EntryKind,
+  type ItineraryLocation,
+  type Participant,
+} from "./api.ts";
+import { cn } from "@/lib/utils.ts";
+import { Badge } from "@/ui/badge.tsx";
+import { Button } from "@/ui/button.tsx";
+import { Checkbox } from "@/ui/checkbox.tsx";
+import { Input, Select } from "@/ui/input.tsx";
+import { Empty, Panel, PanelBody, PanelHeader } from "@/ui/surface.tsx";
 
-const KIND_LABEL: Record<EntryKind, string> = {
-  activity: "Activity",
-  meal: "Meal",
-  place: "Place",
-};
+const KIND_LABEL: Record<EntryKind, string> = { activity: "Activity", meal: "Meal", place: "Place" };
 
-/** Struck through once it did not happen, so the plan stays readable. */
-const entryStyle = (entry: Entry): React.CSSProperties =>
-  entry.status === "skipped" || entry.status === "cancelled"
-    ? { textDecoration: "line-through", color: "#999" }
-    : {};
+const STATUS_ICON = {
+  planned: Circle,
+  done: Check,
+  skipped: CornerDownRight,
+  cancelled: Ban,
+} as const;
 
-const STATUS_MARK: Record<Entry["status"], string> = {
-  planned: "○",
-  done: "●",
-  skipped: "⤼",
-  cancelled: "✕",
-};
+const weekday = (iso: string): string =>
+  new Date(`${iso}T00:00:00`).toLocaleDateString("en-GB", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  });
+
+type Draft = { title: string; kind: EntryKind; startsAt: string };
+const emptyDraft: Draft = { title: "", kind: "activity", startsAt: "" };
 
 export function Itinerary({
   tripId,
-  participantCount,
+  participants,
   version,
   onChange,
 }: {
   tripId: string;
-  /** Attendee names are shown only when a day's entry is narrower than this. */
-  participantCount: number;
-  /** Bumped by siblings whose edits change what a day shows. */
+  participants: Participant[];
   version: number;
   onChange: () => void;
 }) {
@@ -37,9 +60,9 @@ export function Itinerary({
   const [locations, setLocations] = useState<ItineraryLocation[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [newLocation, setNewLocation] = useState("");
+  const [newArea, setNewArea] = useState("");
   const [newDayDate, setNewDayDate] = useState("");
-  const [drafts, setDrafts] = useState<Record<string, { title: string; kind: EntryKind; startsAt: string }>>({});
+  const [drafts, setDrafts] = useState<Record<string, Draft>>({});
 
   const load = () => {
     Promise.all([api.days(tripId), api.locations(tripId), api.bookings(tripId)])
@@ -64,226 +87,370 @@ export function Itinerary({
     }
   };
 
-  const draftFor = (dayId: string) =>
-    drafts[dayId] ?? { title: "", kind: "activity" as EntryKind, startsAt: "" };
+  const draftFor = (dayId: string) => drafts[dayId] ?? emptyDraft;
+  const lodgings = bookings.filter((b) => b.kind === "lodging");
+  const travel = bookings.filter((b) => b.kind !== "lodging");
 
-  if (days === null) return <p>…</p>;
+  if (days === null) return <p className="text-sm text-subtle">Loading</p>;
 
   return (
-    <section>
-      <h3 style={{ fontSize: "1em" }}>Where</h3>
-      <p style={{ margin: 0 }}>
-        {locations.length === 0 ? (
-          <span style={{ color: "#666" }}>No areas yet. Seoul, Busan, Jeju — rough is fine.</span>
-        ) : (
-          locations.map((l) => (
-            <span key={l.id} style={{ marginRight: ".75rem" }}>
-              {l.name}{" "}
-              {/* Derived by counting days, never an allocation you must honour. */}
-              <small style={{ color: "#888" }}>
-                {l.dayCount} {l.dayCount === 1 ? "day" : "days"}
-              </small>{" "}
-              {l.dayCount === 0 && (
-                <button
-                  type="button"
-                  onClick={() => act(() => api.removeLocation(tripId, l.id))}
-                  style={{ background: "none", border: "none", color: "#b00", cursor: "pointer" }}
-                  title="Remove"
+    <div className="grid gap-7">
+      <Panel>
+        <PanelHeader
+          title="Where"
+          description="Rough areas, not addresses. Day counts come from the itinerary, so nothing here commits you to anything."
+        />
+        <PanelBody className="flex flex-wrap items-center gap-2">
+          {locations.map((area) => (
+            <span
+              key={area.id}
+              className="group inline-flex items-center gap-2 rounded-md border border-line bg-sunken py-1 pr-1 pl-2.5 text-sm"
+            >
+              <span className="text-ink">{area.name}</span>
+              <span className="numeric text-xs text-muted">
+                {area.dayCount} {area.dayCount === 1 ? "day" : "days"}
+              </span>
+              {area.dayCount === 0 && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-5 opacity-0 group-hover:opacity-100"
+                  aria-label={`Remove ${area.name}`}
+                  onClick={() => act(() => api.removeLocation(tripId, area.id))}
                 >
-                  ×
-                </button>
+                  <Trash2 className="size-3" />
+                </Button>
               )}
             </span>
-          ))
+          ))}
+
+          <form
+            className="flex items-center gap-1.5"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void act(async () => {
+                await api.addLocation(tripId, newArea);
+                setNewArea("");
+              });
+            }}
+          >
+            <Input
+              value={newArea}
+              onChange={(e) => setNewArea(e.target.value)}
+              placeholder={locations.length === 0 ? "Seoul" : "Add an area"}
+              className="h-7 w-32 py-0.5 text-sm"
+            />
+            <Button type="submit" size="icon" variant="ghost" aria-label="Add area" disabled={newArea.trim() === ""}>
+              <Plus />
+            </Button>
+          </form>
+        </PanelBody>
+      </Panel>
+
+      <section>
+        <header className="mb-4 flex flex-wrap items-baseline justify-between gap-3">
+          <h2 className="text-lg font-medium text-ink">Day by day</h2>
+          {days.length > 0 && (
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-muted">Trip moved?</span>
+              <div className="flex overflow-hidden rounded-md border border-line">
+                {[
+                  { label: "−1w", by: -7 },
+                  { label: "−1d", by: -1 },
+                  { label: "+1d", by: 1 },
+                  { label: "+1w", by: 7 },
+                ].map((shift) => (
+                  <button
+                    key={shift.label}
+                    type="button"
+                    onClick={() => act(() => api.shiftDays(tripId, shift.by))}
+                    className="numeric border-r border-line px-2 py-1 text-xs text-muted transition-colors last:border-r-0 hover:bg-sunken hover:text-ink"
+                  >
+                    {shift.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </header>
+
+        {days.length === 0 ? (
+          <Panel>
+            <Empty
+              action={
+                <Button variant="primary" onClick={() => act(() => api.addDay(tripId, { date: null }))}>
+                  <CalendarPlus />
+                  Add the first day
+                </Button>
+              }
+            >
+              Days are the backbone of a trip. Add one for each day you will be away — a date is
+              optional, so an unscheduled trip still gets an itinerary.
+            </Empty>
+          </Panel>
+        ) : (
+          <ol className="grid">
+            {days.map((day, index) => {
+              const draft = draftFor(day.id);
+              const last = index === days.length - 1;
+
+              return (
+                <li key={day.id} className="group/day relative grid grid-cols-[2rem_1fr] gap-x-4 pb-7">
+                  {/* The spine: a continuous rule that stops at the last day. */}
+                  {!last && (
+                    <span className="absolute top-8 bottom-0 left-4 -ml-px w-px bg-line" aria-hidden />
+                  )}
+
+                  <span className="numeric z-10 grid size-8 place-items-center self-start rounded-full border border-line bg-raised text-sm text-muted">
+                    {day.dayNumber}
+                  </span>
+
+                  <div className="min-w-0 pt-1">
+                    <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+                      <h3 className="numeric font-medium text-ink">
+                        {day.date === null ? `Day ${day.dayNumber}` : weekday(day.date)}
+                      </h3>
+                      <div className="flex items-center gap-1">
+                        {day.locations.length > 0 && (
+                          <span className="text-sm text-muted">
+                            {day.locations.map((l) => l.name).join(" → ")}
+                          </span>
+                        )}
+                        <div className="flex opacity-0 transition-opacity group-hover/day:opacity-100 focus-within:opacity-100">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            aria-label="Insert a day before this one"
+                            title="Insert a day before this one"
+                            onClick={() => act(() => api.addDay(tripId, { atDayNumber: day.dayNumber }))}
+                          >
+                            <Plus />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            aria-label={`Delete day ${day.dayNumber}`}
+                            onClick={() => act(() => api.removeDay(tripId, day.id))}
+                          >
+                            <Trash2 />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-2 grid gap-1.5 text-sm">
+                      <label className="flex items-center gap-2 text-muted">
+                        <BedDouble className="size-3.5 shrink-0 text-subtle" />
+                        <Select
+                          value={day.lodging?.id ?? ""}
+                          onChange={(e) =>
+                            act(() => api.setDayLodging(tripId, day.id, e.target.value === "" ? null : e.target.value))
+                          }
+                          className="h-7 w-auto min-w-40 py-0.5 text-sm"
+                        >
+                          <option value="">Nowhere booked</option>
+                          {lodgings.map((b) => (
+                            <option key={b.id} value={b.id}>
+                              {b.title}
+                              {b.status === "booked" ? "" : ` (${b.status})`}
+                            </option>
+                          ))}
+                        </Select>
+                      </label>
+
+                      {travel.length > 0 && (
+                        <div className="flex flex-wrap items-center gap-x-1 gap-y-0.5">
+                          <Plane className="size-3.5 shrink-0 text-subtle" />
+                          {travel.map((b) => {
+                            const on = day.bookings.some((d) => d.id === b.id);
+                            return (
+                              <Checkbox
+                                key={b.id}
+                                checked={on}
+                                onCheckedChange={() =>
+                                  act(() =>
+                                    api.setDayBookings(
+                                      tripId,
+                                      day.id,
+                                      on
+                                        ? day.bookings.filter((d) => d.id !== b.id).map((d) => d.id)
+                                        : [...day.bookings.map((d) => d.id), b.id],
+                                    ),
+                                  )
+                                }
+                              >
+                                <span className={on ? "text-ink" : "text-muted"}>{b.title}</span>
+                              </Checkbox>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+
+                    <ul className="mt-3 grid gap-0.5">
+                      {day.entries.map((entry) => (
+                        <EntryRow
+                          key={entry.id}
+                          entry={entry}
+                          participantCount={participants.length}
+                          onDone={() => act(() => api.setEntryStatus(tripId, entry.id, "done"))}
+                          onSkip={() => act(() => api.setEntryStatus(tripId, entry.id, "skipped"))}
+                          onDelete={() => act(() => api.removeEntry(tripId, entry.id))}
+                        />
+                      ))}
+                    </ul>
+
+                    <form
+                      className="mt-2 flex flex-wrap items-center gap-1.5"
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        void act(async () => {
+                          await api.addEntry(tripId, day.id, {
+                            kind: draft.kind,
+                            title: draft.title,
+                            startsAt: draft.startsAt === "" ? null : draft.startsAt,
+                          });
+                          setDrafts((prev) => ({ ...prev, [day.id]: { ...emptyDraft, kind: draft.kind } }));
+                        });
+                      }}
+                    >
+                      <Select
+                        value={draft.kind}
+                        onChange={(e) =>
+                          setDrafts((prev) => ({ ...prev, [day.id]: { ...draft, kind: e.target.value as EntryKind } }))
+                        }
+                        className="h-7 w-auto py-0.5 text-sm"
+                        aria-label="Kind"
+                      >
+                        {(Object.keys(KIND_LABEL) as EntryKind[]).map((k) => (
+                          <option key={k} value={k}>
+                            {KIND_LABEL[k]}
+                          </option>
+                        ))}
+                      </Select>
+                      <Input
+                        type="time"
+                        value={draft.startsAt}
+                        onChange={(e) =>
+                          setDrafts((prev) => ({ ...prev, [day.id]: { ...draft, startsAt: e.target.value } }))
+                        }
+                        className="numeric h-7 w-24 py-0.5 text-sm"
+                        aria-label="Time"
+                      />
+                      <Input
+                        value={draft.title}
+                        onChange={(e) =>
+                          setDrafts((prev) => ({ ...prev, [day.id]: { ...draft, title: e.target.value } }))
+                        }
+                        placeholder="What are you doing?"
+                        className="h-7 min-w-44 flex-1 py-0.5 text-sm"
+                      />
+                      <Button type="submit" size="sm" variant="ghost" disabled={draft.title.trim() === ""}>
+                        Add
+                      </Button>
+                    </form>
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
         )}
-      </p>
 
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          void act(async () => {
-            await api.addLocation(tripId, newLocation);
-            setNewLocation("");
-          });
-        }}
-        style={{ display: "flex", gap: ".5rem", margin: ".5rem 0 1.5rem", maxWidth: "20rem" }}
-      >
-        <input placeholder="Add an area" value={newLocation} onChange={(e) => setNewLocation(e.target.value)} required style={{ flex: 1 }} />
-        <button type="submit" disabled={newLocation.trim() === ""}>Add</button>
-      </form>
-
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: "1rem", flexWrap: "wrap" }}>
-        <h3 style={{ fontSize: "1em", margin: 0 }}>Day by day</h3>
         {days.length > 0 && (
-          <span style={{ fontSize: ".85em" }}>
-            Trip moved?{" "}
-            <button type="button" onClick={() => act(() => api.shiftDays(tripId, -7))}>−1 week</button>{" "}
-            <button type="button" onClick={() => act(() => api.shiftDays(tripId, -1))}>−1 day</button>{" "}
-            <button type="button" onClick={() => act(() => api.shiftDays(tripId, 1))}>+1 day</button>{" "}
-            <button type="button" onClick={() => act(() => api.shiftDays(tripId, 7))}>+1 week</button>
+          <form
+            className="ml-[3rem] flex flex-wrap items-center gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void act(async () => {
+                await api.addDay(tripId, { date: newDayDate === "" ? null : newDayDate });
+                setNewDayDate("");
+              });
+            }}
+          >
+            <Input
+              type="date"
+              value={newDayDate}
+              onChange={(e) => setNewDayDate(e.target.value)}
+              className="numeric h-8 w-40 text-sm"
+              aria-label="Date for the new day"
+            />
+            <Button type="submit" size="sm">
+              <Plus />
+              Add day
+            </Button>
+          </form>
+        )}
+      </section>
+
+      {error !== null && <p className="text-sm text-danger">{error}</p>}
+    </div>
+  );
+}
+
+function EntryRow({
+  entry,
+  participantCount,
+  onDone,
+  onSkip,
+  onDelete,
+}: {
+  entry: Entry;
+  participantCount: number;
+  onDone: () => void;
+  onSkip: () => void;
+  onDelete: () => void;
+}) {
+  const Icon = STATUS_ICON[entry.status];
+  const struck = entry.status === "skipped" || entry.status === "cancelled";
+  /** Only worth naming people when the group split up for this. */
+  const partial = entry.attendees.length > 0 && entry.attendees.length < participantCount;
+
+  return (
+    <li className="group/entry flex items-baseline gap-2 rounded-md px-1.5 py-1 transition-colors hover:bg-sunken">
+      <Icon
+        className={cn(
+          "mt-0.5 size-3.5 shrink-0",
+          entry.status === "done" ? "text-accent" : "text-subtle",
+        )}
+        strokeWidth={entry.status === "done" ? 3 : 2}
+      />
+
+      <span className="numeric w-11 shrink-0 text-sm text-muted">
+        {entry.startsAt?.slice(0, 5) ?? ""}
+      </span>
+
+      <span className="min-w-0 flex-1">
+        <span className={cn("text-ink", struck && "text-subtle line-through")}>{entry.title}</span>
+        {entry.placeName !== null && (
+          <span className="ml-2 text-sm text-muted">{entry.placeName}</span>
+        )}
+        {partial && (
+          <span className="ml-2 text-sm text-muted">
+            {entry.attendees.map((a) => a.displayName).join(", ")}
           </span>
         )}
-      </div>
+        {entry.replacedByEntryId !== null && (
+          <Badge className="ml-2" tone="caution">
+            replaced
+          </Badge>
+        )}
+      </span>
 
-      {days.length === 0 && <p style={{ color: "#666" }}>No days yet. Add the first one below.</p>}
-
-      <ol style={{ listStyle: "none", padding: 0, display: "grid", gap: "1rem" }}>
-        {days.map((day) => (
-          <li key={day.id} style={{ border: "1px solid #ddd", borderRadius: 6, padding: ".75rem" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap" }}>
-              <strong>
-                Day {day.dayNumber}
-                {day.date !== null && <span style={{ fontWeight: 400, color: "#666" }}> · {day.date}</span>}
-              </strong>
-              <span style={{ fontSize: ".85em" }}>
-                <button type="button" onClick={() => act(() => api.addDay(tripId, { atDayNumber: day.dayNumber }))} title="Insert a day here">
-                  insert before
-                </button>{" "}
-                <button type="button" onClick={() => act(() => api.removeDay(tripId, day.id))} style={{ color: "#b00" }}>
-                  delete day
-                </button>
-              </span>
-            </div>
-
-            {day.locations.length > 0 && (
-              <div style={{ color: "#666", fontSize: ".9em" }}>
-                {day.locations.map((l) => l.name).join(" → ")}
-              </div>
-            )}
-
-            <div style={{ display: "grid", gap: ".3rem", margin: ".5rem 0", fontSize: ".85em" }}>
-              <label style={{ color: "#555" }}>
-                {/* Lodging is a property of the night, so one per day. */}
-                Sleeping at{" "}
-                <select
-                  value={day.lodging?.id ?? ""}
-                  onChange={(e) => act(() => api.setDayLodging(tripId, day.id, e.target.value === "" ? null : e.target.value))}
-                >
-                  <option value="">— nowhere booked —</option>
-                  {bookings
-                    .filter((b) => b.kind === "lodging")
-                    .map((b) => (
-                      <option key={b.id} value={b.id}>
-                        {b.title}
-                        {b.status !== "booked" ? ` (${b.status})` : ""}
-                      </option>
-                    ))}
-                </select>
-              </label>
-
-              {bookings.some((b) => b.kind !== "lodging") && (
-                <div style={{ color: "#555" }}>
-                  Using:{" "}
-                  {bookings
-                    .filter((b) => b.kind !== "lodging")
-                    .map((b) => {
-                      const on = day.bookings.some((d) => d.id === b.id);
-                      return (
-                        <label key={b.id} style={{ marginRight: ".6rem", whiteSpace: "nowrap" }}>
-                          <input
-                            type="checkbox"
-                            checked={on}
-                            onChange={() => {
-                              const next = on
-                                ? day.bookings.filter((d) => d.id !== b.id).map((d) => d.id)
-                                : [...day.bookings.map((d) => d.id), b.id];
-                              void act(() => api.setDayBookings(tripId, day.id, next));
-                            }}
-                          />{" "}
-                          {b.title}
-                        </label>
-                      );
-                    })}
-                </div>
-              )}
-            </div>
-
-            <ul style={{ listStyle: "none", padding: 0, margin: ".5rem 0 0", display: "grid", gap: ".3rem" }}>
-              {day.entries.map((entry) => (
-                <li key={entry.id} style={{ display: "flex", gap: ".5rem", alignItems: "baseline" }}>
-                  <span title={entry.status}>{STATUS_MARK[entry.status]}</span>
-                  <span style={{ color: "#888", fontVariantNumeric: "tabular-nums", minWidth: "3.2rem" }}>
-                    {entry.startsAt?.slice(0, 5) ?? ""}
-                  </span>
-                  <span style={{ flex: 1, ...entryStyle(entry) }}>
-                    {entry.title}
-                    <small style={{ color: "#aaa" }}> · {KIND_LABEL[entry.kind]}</small>
-                    {entry.placeName !== null && <small style={{ color: "#888" }}> · {entry.placeName}</small>}
-                    {/* Only worth saying when the group split up. */}
-                    {entry.attendees.length > 0 && entry.attendees.length < participantCount && (
-                      <small style={{ color: "#888" }}> · {entry.attendees.map((a) => a.displayName).join(", ")}</small>
-                    )}
-                  </span>
-                  <span style={{ fontSize: ".8em", whiteSpace: "nowrap" }}>
-                    {entry.status !== "done" && (
-                      <button type="button" onClick={() => act(() => api.setEntryStatus(tripId, entry.id, "done"))}>done</button>
-                    )}
-                    {entry.status === "planned" && (
-                      <button type="button" onClick={() => act(() => api.setEntryStatus(tripId, entry.id, "skipped"))}>skip</button>
-                    )}
-                    <button type="button" onClick={() => act(() => api.removeEntry(tripId, entry.id))} style={{ color: "#b00" }}>×</button>
-                  </span>
-                </li>
-              ))}
-            </ul>
-
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                const draft = draftFor(day.id);
-                void act(async () => {
-                  await api.addEntry(tripId, day.id, {
-                    kind: draft.kind,
-                    title: draft.title,
-                    startsAt: draft.startsAt === "" ? null : draft.startsAt,
-                  });
-                  setDrafts((prev) => ({ ...prev, [day.id]: { title: "", kind: draft.kind, startsAt: "" } }));
-                });
-              }}
-              style={{ display: "flex", gap: ".4rem", marginTop: ".5rem", flexWrap: "wrap" }}
-            >
-              <select
-                value={draftFor(day.id).kind}
-                onChange={(e) => setDrafts((prev) => ({ ...prev, [day.id]: { ...draftFor(day.id), kind: e.target.value as EntryKind } }))}
-              >
-                {(Object.keys(KIND_LABEL) as EntryKind[]).map((k) => (
-                  <option key={k} value={k}>{KIND_LABEL[k]}</option>
-                ))}
-              </select>
-              <input
-                type="time"
-                value={draftFor(day.id).startsAt}
-                onChange={(e) => setDrafts((prev) => ({ ...prev, [day.id]: { ...draftFor(day.id), startsAt: e.target.value } }))}
-              />
-              <input
-                placeholder="What are you doing?"
-                value={draftFor(day.id).title}
-                onChange={(e) => setDrafts((prev) => ({ ...prev, [day.id]: { ...draftFor(day.id), title: e.target.value } }))}
-                required
-                style={{ flex: 1, minWidth: "10rem" }}
-              />
-              <button type="submit" disabled={draftFor(day.id).title.trim() === ""}>Add</button>
-            </form>
-          </li>
-        ))}
-      </ol>
-
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          void act(async () => {
-            await api.addDay(tripId, { date: newDayDate === "" ? null : newDayDate });
-            setNewDayDate("");
-          });
-        }}
-        style={{ display: "flex", gap: ".5rem", marginTop: "1rem", alignItems: "center", flexWrap: "wrap" }}
-      >
-        <input type="date" value={newDayDate} onChange={(e) => setNewDayDate(e.target.value)} />
-        <button type="submit">Add day</button>
-        <small style={{ color: "#888" }}>A date is optional — an unscheduled trip still has an itinerary.</small>
-      </form>
-
-      {error !== null && <p style={{ color: "#b00" }}>{error}</p>}
-    </section>
+      <span className="flex shrink-0 opacity-0 transition-opacity group-hover/entry:opacity-100 focus-within:opacity-100">
+        {entry.status !== "done" && (
+          <Button variant="ghost" size="sm" onClick={onDone}>
+            Done
+          </Button>
+        )}
+        {entry.status === "planned" && (
+          <Button variant="ghost" size="sm" onClick={onSkip}>
+            Skip
+          </Button>
+        )}
+        <Button variant="ghost" size="icon" aria-label={`Delete ${entry.title}`} onClick={onDelete}>
+          <Trash2 />
+        </Button>
+      </span>
+    </li>
   );
 }

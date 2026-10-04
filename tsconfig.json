@@ -14,7 +14,9 @@
     "erasableSyntaxOnly": true,
     "verbatimModuleSyntax": true,
     "skipLibCheck": true,
-    "jsx": "react-jsx"
+    "jsx": "react-jsx",
+    // TypeScript 7 removed baseUrl; paths must be relative to this file.
+    "paths": { "@/*": ["./web/src/*"] }
   },
   "include": ["src", "test", "web/src", "scripts", "vite.config.ts"]
 }

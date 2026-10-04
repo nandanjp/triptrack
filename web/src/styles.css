@@ -1,0 +1,159 @@
+@import "tailwindcss";
+
+/* Self-hosted: nothing on the render path leaves the cluster, which also
+   means the app looks right on bad hotel wifi. */
+@import "@fontsource-variable/ibm-plex-sans";
+@import "@fontsource/ibm-plex-serif/400.css";
+@import "@fontsource/ibm-plex-serif/500.css";
+
+/* Toggled, not just inherited from the OS, so the switcher can override it. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+  Light is the default and dark is a real design, not an inversion: the dark
+  surfaces are a cool slate rather than black, and the accent lightens so it
+  keeps its contrast against them.
+*/
+:root {
+  --surface: #fcfcfd;
+  --surface-raised: #ffffff;
+  --surface-sunken: #f4f5f7;
+  --ink: #1c1e26;
+  --ink-muted: #6b6f7b;
+  --ink-subtle: #9095a1;
+  --border: #e6e7eb;
+  --border-strong: #d4d6dc;
+
+  /* Petrol, from chart and map ink — not a product blue. */
+  --accent: #0e6e6b;
+  --accent-hover: #0b5a57;
+  --accent-fg: #ffffff;
+  --accent-soft: #e3f2f1;
+
+  /* Money reads as direction, not success and failure: being owed is green,
+     owing is amber. Owing somebody is not an error. */
+  --positive: #2f7d4f;
+  --caution: #9a6400;
+  --danger: #b4432f;
+  --danger-soft: #fdece8;
+}
+
+:root.dark {
+  --surface: #17181c;
+  --surface-raised: #1e2027;
+  --surface-sunken: #22242c;
+  --ink: #e8e9ed;
+  --ink-muted: #9a9fac;
+  --ink-subtle: #70757f;
+  --border: #2a2c34;
+  --border-strong: #3a3d47;
+
+  --accent: #3dbdb5;
+  --accent-hover: #55cdc5;
+  --accent-fg: #0a1f1e;
+  --accent-soft: #15302f;
+
+  --positive: #5fbf85;
+  --caution: #d4a24a;
+  --danger: #e08572;
+  --danger-soft: #35211d;
+}
+
+@theme inline {
+  --color-surface: var(--surface);
+  --color-raised: var(--surface-raised);
+  --color-sunken: var(--surface-sunken);
+  --color-ink: var(--ink);
+  --color-muted: var(--ink-muted);
+  --color-subtle: var(--ink-subtle);
+  --color-line: var(--border);
+  --color-line-strong: var(--border-strong);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-fg: var(--accent-fg);
+  --color-accent-soft: var(--accent-soft);
+  --color-positive: var(--positive);
+  --color-caution: var(--caution);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+
+  --font-sans: "IBM Plex Sans Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "IBM Plex Serif", Georgia, serif;
+
+  /* A 1.25-ish modular scale off a 15px base: dense enough to feel like an
+     application, loose enough to read on a phone. */
+  --text-xs: 0.75rem;
+  --text-xs--line-height: 1.4;
+  --text-sm: 0.8125rem;
+  --text-sm--line-height: 1.45;
+  --text-base: 0.9375rem;
+  --text-base--line-height: 1.55;
+  --text-lg: 1.0625rem;
+  --text-lg--line-height: 1.5;
+  --text-xl: 1.25rem;
+  --text-xl--line-height: 1.35;
+  --text-2xl: 1.5625rem;
+  --text-2xl--line-height: 1.25;
+  --text-3xl: 2rem;
+  --text-3xl--line-height: 1.15;
+
+  /* Deliberately three radii, not one on everything: controls are tighter
+     than containers. */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.625rem;
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  html {
+    color-scheme: light;
+  }
+
+  html.dark {
+    color-scheme: dark;
+  }
+
+  body {
+    background: var(--surface);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: var(--text-base);
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Visible focus everywhere, including for keyboard users who never see a
+     mouse pointer. */
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: var(--accent-soft);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Money and dates line up in columns; proportional digits make them wobble. */
+@utility numeric {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "ss01";
+}

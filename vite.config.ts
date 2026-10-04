@@ -1,9 +1,17 @@
-import { defineConfig } from "vite";
+import { fileURLToPath } from "node:url";
+import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
+import { defineConfig } from "vite";
 
 export default defineConfig({
   root: "web",
-  plugins: [react()],
+  plugins: [react(), tailwindcss()],
+  resolve: {
+    alias: {
+      // Matches the tsconfig path, so components import as @/ui/button.
+      "@": fileURLToPath(new URL("./web/src", import.meta.url)),
+    },
+  },
   build: {
     // Served by Hono from the same container; see src/index.ts.
     outDir: "../dist/public",

@@ -1,8 +1,32 @@
 import { useEffect, useState } from "react";
+import { EyeOff, Plus, Trash2 } from "lucide-react";
 import { formatMinor, parseAmount } from "../../src/expenses/money.ts";
-import { api, type Expense, type ExpenseSummary, type Participant } from "./api.ts";
+import { api, type CurrencyTotal, type Expense, type ExpenseSummary, type Participant } from "./api.ts";
+import { Badge } from "@/ui/badge.tsx";
+import { Button } from "@/ui/button.tsx";
+import { Checkbox } from "@/ui/checkbox.tsx";
+import { Dialog } from "@/ui/dialog.tsx";
+import { Field } from "@/ui/field.tsx";
+import { Input, Select } from "@/ui/input.tsx";
+import { Empty, Panel, PanelHeader } from "@/ui/surface.tsx";
 
-const CURRENCIES = ["CAD", "KRW", "JPY", "USD", "EUR", "GBP"];
+const CURRENCIES = ["CAD", "USD", "EUR", "GBP", "KRW", "JPY"];
+
+/** One figure per currency. Converting would let a rate change the past. */
+function Total({ label, totals, note }: { label: string; totals: CurrencyTotal[]; note: string }) {
+  return (
+    <div className="min-w-0 flex-1 px-4 py-3">
+      <p className="text-sm text-muted">{label}</p>
+      <p className="numeric mt-0.5 flex flex-wrap items-baseline gap-x-3 text-xl text-ink">
+        {totals.length === 0 ? <span className="text-subtle">Nothing yet</span> : null}
+        {totals.map((t) => (
+          <span key={t.currency}>{formatMinor(t.totalMinor, t.currency)}</span>
+        ))}
+      </p>
+      <p className="mt-0.5 text-sm text-subtle">{note}</p>
+    </div>
+  );
+}
 
 type Draft = {
   description: string;
@@ -13,26 +37,6 @@ type Draft = {
   isPrivate: boolean;
 };
 
-const Totals = ({ label, totals, hint }: { label: string; totals: { currency: string; totalMinor: number }[]; hint?: string }) => (
-  <div>
-    <strong style={{ fontSize: ".9em", color: "#555" }}>{label}</strong>
-    {hint !== undefined && <small style={{ color: "#888" }}> · {hint}</small>}
-    <div>
-      {totals.length === 0 ? (
-        <span style={{ color: "#888" }}>—</span>
-      ) : (
-        // One figure per currency rather than a single converted number: a
-        // rate moving must not change what a past trip cost.
-        totals.map((t) => (
-          <span key={t.currency} style={{ marginRight: ".75rem", fontVariantNumeric: "tabular-nums" }}>
-            {formatMinor(t.totalMinor, t.currency)}
-          </span>
-        ))
-      )}
-    </div>
-  </div>
-);
-
 export function Expenses({
   tripId,
   participants,
@@ -42,18 +46,20 @@ export function Expenses({
 }: {
   tripId: string;
   participants: Participant[];
-  myParticipantId: string | null;
+  myParticipantId: string;
   version: number;
   onChange: () => void;
 }) {
   const [expenses, setExpenses] = useState<Expense[] | null>(null);
   const [summary, setSummary] = useState<ExpenseSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [draft, setDraft] = useState<Draft>({
     description: "",
     amount: "",
     currency: CURRENCIES[0] ?? "CAD",
-    paidByParticipantId: myParticipantId ?? "",
+    paidByParticipantId: myParticipantId,
     consumerIds: participants.map((p) => p.id),
     isPrivate: false,
   });
@@ -80,165 +86,222 @@ export function Expenses({
     }
   };
 
-  const submit = (event: React.FormEvent) => {
-    event.preventDefault();
-    const parsed = parseAmount(draft.amount, draft.currency);
-    if (!parsed.ok) {
-      setError(parsed.error);
-      return;
-    }
-
-    void act(async () => {
-      await api.addExpense(tripId, {
-        description: draft.description,
-        amountMinor: parsed.amountMinor,
-        currency: draft.currency,
-        paidByParticipantId: draft.paidByParticipantId || undefined,
-        isPrivate: draft.isPrivate,
-        // A private expense has nobody to split with, so the list is omitted.
-        ...(draft.isPrivate ? {} : { consumerIds: draft.consumerIds }),
-      });
-      setDraft({ ...draft, description: "", amount: "" });
-    });
-  };
-
-  if (expenses === null || summary === null) return <p>…</p>;
-
   const nameFor = (id: string) => participants.find((p) => p.id === id)?.displayName ?? "someone";
+  const payerOutside = !draft.isPrivate && !draft.consumerIds.includes(draft.paidByParticipantId);
+
+  if (expenses === null || summary === null) return <p className="text-sm text-subtle">Loading</p>;
 
   return (
-    <section>
-      <h3 style={{ fontSize: "1em" }}>Money</h3>
+    <div className="grid gap-7">
+      <Panel className="flex flex-wrap divide-x divide-line">
+        <Total
+          label="The trip"
+          totals={summary.shared}
+          note="Everything shared, in the currency it was spent."
+        />
+        <Total label="You" totals={summary.mine} note="Your share, plus your private spending." />
+      </Panel>
 
-      <div style={{ display: "flex", gap: "2rem", flexWrap: "wrap", marginBottom: "1rem" }}>
-        <Totals label="Trip total" totals={summary.shared} hint="shared" />
-        <Totals label="Your total" totals={summary.mine} hint="your share, plus your private spend" />
-      </div>
+      <Panel>
+        <PanelHeader
+          title="Spending"
+          description="Who fronted the money and whose it was are different questions, so both get recorded."
+          action={
+            <Button variant="primary" size="sm" onClick={() => setOpen(true)}>
+              <Plus />
+              Add expense
+            </Button>
+          }
+        />
 
-      {expenses.length === 0 ? (
-        <p style={{ color: "#666" }}>Nothing recorded yet.</p>
-      ) : (
-        <ul style={{ listStyle: "none", padding: 0, display: "grid", gap: ".4rem" }}>
-          {expenses.map((expense) => (
-            <li key={expense.id} style={{ border: "1px solid #eee", borderRadius: 6, padding: ".5rem .75rem" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: "1rem" }}>
-                <span>
-                  {expense.description}
-                  {expense.isPrivate && <small style={{ color: "#777" }}> · private</small>}
-                </span>
-                <strong style={{ fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
-                  {formatMinor(expense.amountMinor, expense.currency)}
-                </strong>
-              </div>
-              <div style={{ color: "#666", fontSize: ".85em" }}>
-                {/* Paid is not owed: the payer fronted it, the shares say who consumed it. */}
-                {expense.paidByName} paid
-                {expense.shares.length > 0 && (
-                  <>
-                    {" · "}
-                    {expense.shares
-                      .map((s) => `${s.displayName} ${formatMinor(s.amountMinor, expense.currency)}`)
-                      .join(", ")}
-                  </>
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={() => act(() => api.removeExpense(tripId, expense.id))}
-                style={{ fontSize: ".8em", color: "#b00" }}
+        {expenses.length === 0 ? (
+          <Empty>
+            Nothing recorded yet. Add what you spend as you go and the split works itself out at
+            the end.
+          </Empty>
+        ) : (
+          <ul className="divide-y divide-line">
+            {expenses.map((expense) => (
+              <li
+                key={expense.id}
+                className="group flex flex-wrap items-baseline gap-x-3 gap-y-1 px-4 py-2.5 transition-colors hover:bg-sunken"
               >
-                delete
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
+                <span className="min-w-0 flex-1">
+                  <span className="text-ink">{expense.description}</span>
+                  {expense.isPrivate && (
+                    <Badge className="ml-2">
+                      <EyeOff className="size-3" />
+                      private
+                    </Badge>
+                  )}
+                  <span className="mt-0.5 block text-sm text-muted">
+                    {expense.paidByName} paid
+                    {expense.shares.length > 0 &&
+                      ` — ${expense.shares
+                        .map((s) => `${s.displayName} ${formatMinor(s.amountMinor, expense.currency)}`)
+                        .join(", ")}`}
+                  </span>
+                </span>
 
-      <form onSubmit={submit} style={{ display: "grid", gap: ".4rem", maxWidth: "26rem", marginTop: "1rem" }}>
-        <div style={{ display: "flex", gap: ".4rem" }}>
-          <input
-            placeholder="What was it for?"
-            value={draft.description}
-            onChange={(e) => setDraft({ ...draft, description: e.target.value })}
-            required
-            style={{ flex: 1 }}
-          />
-          <input
-            placeholder="0.00"
-            value={draft.amount}
-            onChange={(e) => setDraft({ ...draft, amount: e.target.value })}
-            required
-            inputMode="decimal"
-            style={{ width: "6.5rem", textAlign: "right" }}
-          />
-          <select value={draft.currency} onChange={(e) => setDraft({ ...draft, currency: e.target.value })}>
-            {CURRENCIES.map((code) => (
-              <option key={code} value={code}>{code}</option>
+                <span className="numeric shrink-0 font-medium text-ink">
+                  {formatMinor(expense.amountMinor, expense.currency)}
+                </span>
+
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label={`Delete ${expense.description}`}
+                  className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100"
+                  onClick={() => act(() => api.removeExpense(tripId, expense.id))}
+                >
+                  <Trash2 />
+                </Button>
+              </li>
             ))}
-          </select>
-        </div>
-
-        <label style={{ fontSize: ".85em", color: "#555" }}>
-          Paid by{" "}
-          <select
-            value={draft.paidByParticipantId}
-            onChange={(e) => setDraft({ ...draft, paidByParticipantId: e.target.value })}
-          >
-            {participants.map((p) => (
-              <option key={p.id} value={p.id}>{p.displayName}</option>
-            ))}
-          </select>
-        </label>
-
-        {!draft.isPrivate && (
-          <div style={{ fontSize: ".85em", color: "#555" }}>
-            Split between:{" "}
-            {participants.map((p) => {
-              const on = draft.consumerIds.includes(p.id);
-              return (
-                <label key={p.id} style={{ marginRight: ".6rem", whiteSpace: "nowrap" }}>
-                  <input
-                    type="checkbox"
-                    checked={on}
-                    onChange={() =>
-                      setDraft({
-                        ...draft,
-                        consumerIds: on
-                          ? draft.consumerIds.filter((id) => id !== p.id)
-                          : [...draft.consumerIds, p.id],
-                      })
-                    }
-                  />{" "}
-                  {p.displayName}
-                </label>
-              );
-            })}
-            {draft.paidByParticipantId !== "" && !draft.consumerIds.includes(draft.paidByParticipantId) && (
-              <small style={{ color: "#888" }}>
-                {nameFor(draft.paidByParticipantId)} is owed the whole amount.
-              </small>
-            )}
-          </div>
+          </ul>
         )}
+      </Panel>
 
-        <label style={{ fontSize: ".85em", color: "#555" }}>
-          <input
-            type="checkbox"
-            checked={draft.isPrivate}
-            onChange={(e) => setDraft({ ...draft, isPrivate: e.target.checked })}
-          />{" "}
-          Private — only you see this, and it stays out of the split
-        </label>
+      {error !== null && <p className="text-sm text-danger">{error}</p>}
 
-        <button
-          type="submit"
-          disabled={draft.description.trim() === "" || draft.amount.trim() === "" || (!draft.isPrivate && draft.consumerIds.length === 0)}
+      <Dialog
+        open={open}
+        onOpenChange={setOpen}
+        title="Add expense"
+        footer={
+          <>
+            <Button onClick={() => setOpen(false)}>Cancel</Button>
+            <Button
+              type="submit"
+              form="new-expense"
+              variant="primary"
+              disabled={
+                busy ||
+                draft.description.trim() === "" ||
+                draft.amount.trim() === "" ||
+                (!draft.isPrivate && draft.consumerIds.length === 0)
+              }
+            >
+              {busy ? "Working" : "Add expense"}
+            </Button>
+          </>
+        }
+      >
+        <form
+          id="new-expense"
+          className="grid gap-4"
+          onSubmit={(e) => {
+            e.preventDefault();
+            const parsed = parseAmount(draft.amount, draft.currency);
+            if (!parsed.ok) {
+              setError(parsed.error);
+              return;
+            }
+            setBusy(true);
+            void act(async () => {
+              await api.addExpense(tripId, {
+                description: draft.description,
+                amountMinor: parsed.amountMinor,
+                currency: draft.currency,
+                paidByParticipantId: draft.paidByParticipantId,
+                isPrivate: draft.isPrivate,
+                ...(draft.isPrivate ? {} : { consumerIds: draft.consumerIds }),
+              });
+              setDraft({ ...draft, description: "", amount: "" });
+              setOpen(false);
+            }).finally(() => setBusy(false));
+          }}
         >
-          Add expense
-        </button>
-      </form>
+          <Field label="What it was for">
+            <Input
+              value={draft.description}
+              onChange={(e) => setDraft({ ...draft, description: e.target.value })}
+              placeholder="Dinner at Gwangjang"
+              required
+              autoFocus
+            />
+          </Field>
 
-      {error !== null && <p style={{ color: "#b00" }}>{error}</p>}
-    </section>
+          <div className="grid grid-cols-[1fr_6rem] gap-3">
+            <Field label="Amount">
+              <Input
+                value={draft.amount}
+                onChange={(e) => setDraft({ ...draft, amount: e.target.value })}
+                placeholder="0.00"
+                inputMode="decimal"
+                className="numeric text-right"
+                required
+              />
+            </Field>
+            <Field label="Currency">
+              <Select
+                value={draft.currency}
+                onChange={(e) => setDraft({ ...draft, currency: e.target.value })}
+              >
+                {CURRENCIES.map((code) => (
+                  <option key={code} value={code}>
+                    {code}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          </div>
+
+          <Field label="Paid by">
+            <Select
+              value={draft.paidByParticipantId}
+              onChange={(e) => setDraft({ ...draft, paidByParticipantId: e.target.value })}
+            >
+              {participants.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.displayName}
+                </option>
+              ))}
+            </Select>
+          </Field>
+
+          {!draft.isPrivate && (
+            <Field
+              label="Split between"
+              hint={
+                payerOutside
+                  ? `${nameFor(draft.paidByParticipantId)} is owed the whole amount.`
+                  : "Anything that will not divide evenly goes to whoever paid."
+              }
+            >
+              <div className="flex flex-wrap gap-x-1 gap-y-0.5">
+                {participants.map((p) => {
+                  const on = draft.consumerIds.includes(p.id);
+                  return (
+                    <Checkbox
+                      key={p.id}
+                      checked={on}
+                      onCheckedChange={() =>
+                        setDraft({
+                          ...draft,
+                          consumerIds: on
+                            ? draft.consumerIds.filter((id) => id !== p.id)
+                            : [...draft.consumerIds, p.id],
+                        })
+                      }
+                    >
+                      {p.displayName}
+                    </Checkbox>
+                  );
+                })}
+              </div>
+            </Field>
+          )}
+
+          <Checkbox
+            checked={draft.isPrivate}
+            onCheckedChange={(value) => setDraft({ ...draft, isPrivate: value })}
+            className="-ml-1.5"
+          >
+            <span className="text-muted">Private — only you see it, and it stays out of the split</span>
+          </Checkbox>
+        </form>
+      </Dialog>
+    </div>
   );
 }
