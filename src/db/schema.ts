@@ -74,6 +74,13 @@ export const trips = pgTable(
     createdByUserId: uuid("created_by_user_id")
       .notNull()
       .references(() => users.id, { onDelete: "restrict" }),
+    /**
+     * Once set, the money is done and expenses become read-only (D14). v1
+     * locks rather than versioning, because the expected flow is settling up
+     * at the end of a trip. An owner can reopen, which is the escape hatch
+     * for a mistake.
+     */
+    settledAt: timestamp("settled_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [index("trips_created_by_idx").on(table.createdByUserId)],
@@ -498,3 +505,45 @@ export const expenseShares = pgTable(
 
 export type Expense = typeof expenses.$inferSelect;
 export type ExpenseShare = typeof expenseShares.$inferSelect;
+
+/**
+ * A payment one participant actually made to another. These are the only
+ * stored facts about settlement: outstanding balance is
+ * `sum(paid) − sum(owed) − recorded payments`, derived every time.
+ *
+ * Amounts are positive and directional — a negative payment would be the same
+ * fact written backwards, and two spellings of one thing is how a ledger
+ * stops reconciling.
+ */
+export const settlements = pgTable(
+  "settlements",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tripId: uuid("trip_id")
+      .notNull()
+      .references(() => trips.id, { onDelete: "cascade" }),
+    fromParticipantId: uuid("from_participant_id")
+      .notNull()
+      .references(() => tripParticipants.id, { onDelete: "restrict" }),
+    toParticipantId: uuid("to_participant_id")
+      .notNull()
+      .references(() => tripParticipants.id, { onDelete: "restrict" }),
+    amountMinor: integer("amount_minor").notNull(),
+    currency: text("currency").notNull(),
+    /** A local date: when the money changed hands, not an instant. */
+    settledOn: date("settled_on").notNull(),
+    createdByUserId: uuid("created_by_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("settlements_trip_idx").on(table.tripId),
+    check("settlements_amount_positive", sql`amount_minor > 0`),
+    check("settlements_currency_format", sql`currency ~ '^[A-Z]{3}$'`),
+    // Paying yourself is not a payment.
+    check("settlements_distinct_parties", sql`from_participant_id <> to_participant_id`),
+  ],
+);
+
+export type Settlement = typeof settlements.$inferSelect;

@@ -13,7 +13,7 @@ import {
   tripDays,
   tripParticipants,
 } from "../db/schema.ts";
-import { membershipFor, tripNotFound } from "../trips/authorize.ts";
+import { membershipFor, settledAtFor, tripIsSettled, tripNotFound } from "../trips/authorize.ts";
 import { SPLIT_MODES, splitExpense, type Share } from "./split.ts";
 
 const money = z.number().int();
@@ -62,6 +62,26 @@ const singleParent = <T extends { dayId?: unknown; bookingId?: unknown; entryId?
 const newExpense = z.object(expenseFields).superRefine(singleParent);
 const patchExpense = z.object(expenseFields).partial().superRefine(singleParent);
 
+/** Sums rows that share a day and a currency, since they come from two queries. */
+function mergePerDay(
+  rows: { dayId: string | null; currency: string; totalMinor: number | string | null }[],
+): { dayId: string; currency: string; totalMinor: number }[] {
+  const totals = new Map<string, number>();
+
+  for (const row of rows) {
+    if (row.dayId === null) continue;
+    const key = `${row.dayId}|${row.currency}`;
+    totals.set(key, (totals.get(key) ?? 0) + Number(row.totalMinor ?? 0));
+  }
+
+  return [...totals.entries()]
+    .filter(([, totalMinor]) => totalMinor !== 0)
+    .map(([key, totalMinor]) => {
+      const [dayId = "", currency = ""] = key.split("|");
+      return { dayId, currency, totalMinor };
+    });
+}
+
 /** Groups a flat result into one total per currency. */
 const byCurrency = (rows: { currency: string; totalMinor: number | string | null }[]) =>
   rows
@@ -84,7 +104,7 @@ export const expenseRoutes = new Hono<AuthenticatedEnv>()
 
     const me = membership.participantId;
 
-    const [shared, myShares, myPrivate, perDay] = await Promise.all([
+    const [shared, myShares, myPrivate, perDay, mySharesPerDay, myPrivatePerDay] = await Promise.all([
       getDb()
         .select({ currency: expenses.currency, totalMinor: sql<string>`sum(${expenses.amountMinor})` })
         .from(expenses)
@@ -129,6 +149,47 @@ export const expenseRoutes = new Hono<AuthenticatedEnv>()
           and(eq(expenses.tripId, tripId), eq(expenses.isPrivate, false), sql`${expenses.dayId} is not null`),
         )
         .groupBy(expenses.dayId, expenses.currency),
+
+      /**
+       * My daily spend: my share of the group's, plus my own private spend.
+       * Reported alongside the shared figure rather than instead of it —
+       * "the group spent this today" and "this day cost me that" are both
+       * real questions and neither substitutes for the other.
+       */
+      getDb()
+        .select({
+          dayId: expenses.dayId,
+          currency: expenses.currency,
+          totalMinor: sql<string>`sum(${expenseShares.amountMinor})`,
+        })
+        .from(expenseShares)
+        .innerJoin(expenses, eq(expenses.id, expenseShares.expenseId))
+        .where(
+          and(
+            eq(expenses.tripId, tripId),
+            eq(expenses.isPrivate, false),
+            eq(expenseShares.participantId, me),
+            sql`${expenses.dayId} is not null`,
+          ),
+        )
+        .groupBy(expenses.dayId, expenses.currency),
+
+      getDb()
+        .select({
+          dayId: expenses.dayId,
+          currency: expenses.currency,
+          totalMinor: sql<string>`sum(${expenses.amountMinor})`,
+        })
+        .from(expenses)
+        .where(
+          and(
+            eq(expenses.tripId, tripId),
+            eq(expenses.isPrivate, true),
+            eq(expenses.paidByParticipantId, me),
+            sql`${expenses.dayId} is not null`,
+          ),
+        )
+        .groupBy(expenses.dayId, expenses.currency),
     ]);
 
     // My total is my share of the group's spending plus my private spending.
@@ -144,6 +205,7 @@ export const expenseRoutes = new Hono<AuthenticatedEnv>()
       perDay: perDay
         .filter((r) => r.dayId !== null)
         .map((r) => ({ dayId: r.dayId, currency: r.currency, totalMinor: Number(r.totalMinor ?? 0) })),
+      minePerDay: mergePerDay([...mySharesPerDay, ...myPrivatePerDay]),
     });
   })
 
@@ -206,6 +268,10 @@ export const expenseRoutes = new Hono<AuthenticatedEnv>()
     const tripId = c.req.param("tripId");
     const membership = await membershipFor(tripId, c.get("userId"));
     if (membership === undefined) return tripNotFound(c);
+
+    // A settled trip's expenses are read-only (D14): editing one would
+    // corrupt a balance someone has already paid against.
+    if ((await settledAtFor(tripId)) !== null) return tripIsSettled(c);
 
     const input = c.req.valid("json");
     const payerId = input.paidByParticipantId ?? membership.participantId;
@@ -290,6 +356,8 @@ export const expenseRoutes = new Hono<AuthenticatedEnv>()
     const tripId = c.req.param("tripId");
     const membership = await membershipFor(tripId, c.get("userId"));
     if (membership === undefined) return tripNotFound(c);
+
+    if ((await settledAtFor(tripId)) !== null) return tripIsSettled(c);
 
     const expenseId = c.req.param("expenseId");
     const [existing] = await getDb()
@@ -421,6 +489,8 @@ export const expenseRoutes = new Hono<AuthenticatedEnv>()
     const tripId = c.req.param("tripId");
     const membership = await membershipFor(tripId, c.get("userId"));
     if (membership === undefined) return tripNotFound(c);
+
+    if ((await settledAtFor(tripId)) !== null) return tripIsSettled(c);
 
     const [existing] = await getDb()
       .select()

@@ -161,6 +161,33 @@ export type NewExpense = {
   isPrivate?: boolean;
 };
 
+export type Transfer = { fromParticipantId: string; toParticipantId: string; amountMinor: number };
+
+export type CurrencySettlement = {
+  currency: string;
+  balances: { participantId: string; netMinor: number }[];
+  plan: Transfer[];
+  /** Non-null means the balances failed to sum to zero; something is wrong. */
+  inconsistency: string | null;
+};
+
+export type RecordedSettlement = {
+  id: string;
+  fromParticipantId: string;
+  toParticipantId: string;
+  amountMinor: number;
+  currency: string;
+  settledOn: string;
+};
+
+export type SettlementView = {
+  settledAt: string | null;
+  outstanding: boolean;
+  participants: { id: string; displayName: string }[];
+  perCurrency: CurrencySettlement[];
+  recorded: RecordedSettlement[];
+};
+
 export const api = {
   me: (): Promise<Account> => call<Account>("/api/auth/me"),
   register: (email: string, password: string): Promise<Account> =>
@@ -255,6 +282,20 @@ export const api = {
     call(`/api/trips/${tripId}/expenses`, { method: "POST", body: JSON.stringify(expense) }),
   removeExpense: (tripId: string, expenseId: string): Promise<unknown> =>
     call(`/api/trips/${tripId}/expenses/${expenseId}`, { method: "DELETE" }),
+
+  settlement: (tripId: string): Promise<SettlementView> =>
+    call<SettlementView>(`/api/trips/${tripId}/settlement`),
+  recordPayment: (
+    tripId: string,
+    payment: Transfer & { currency: string; settledOn?: string },
+  ): Promise<RecordedSettlement> =>
+    call(`/api/trips/${tripId}/settlements`, { method: "POST", body: JSON.stringify(payment) }),
+  unrecordPayment: (tripId: string, settlementId: string): Promise<unknown> =>
+    call(`/api/trips/${tripId}/settlements/${settlementId}`, { method: "DELETE" }),
+  settleTrip: (tripId: string): Promise<unknown> =>
+    call(`/api/trips/${tripId}/settle`, { method: "POST" }),
+  reopenTrip: (tripId: string): Promise<unknown> =>
+    call(`/api/trips/${tripId}/settle`, { method: "DELETE" }),
 
   renameParticipant: (tripId: string, participantId: string, displayName: string): Promise<Participant> =>
     call(`/api/trips/${tripId}/participants/${participantId}`, {

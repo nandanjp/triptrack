@@ -35,6 +35,7 @@ browser
               │                areas · days · date shift · entries · attendance
               │                bookings · per-night lodging · per-day travel
               │                expenses · shares · totals by currency
+              │                balances · settlement plan · recorded payments
               ├── /api/invites/*  preview (public) · accept · revoke
               ├── /api/*       404 as JSON, never the SPA
               ├── /*           React SPA, served as static assets
@@ -99,15 +100,23 @@ currency — KRW has none, CAD has two — and is a presentation concern, resolv
 `Intl` rather than a table. `src/expenses/money.ts` is imported by both the API and the
 SPA, which is the shared-code benefit ADR-0003 claimed, actually used.
 
-**Balances are derived from shares and never stored.** `sum(paid) − sum(owed)` per
-participant. A stored running balance is how these systems go quietly wrong. The derived
-settlement plan itself arrives in step 7.
+**Balances are derived on every read and never stored.** `sum(paid) − sum(owed) + payments
+made − payments received`, per participant and per currency. A stored running balance is
+how these systems go quietly wrong. The only stored settlement facts are the payments
+people actually made; the plan that clears them is computed. See ADR-0009.
 
-**Splitting lives behind a module boundary** in `src/expenses/split.ts` — pure functions,
-no database, no HTTP — because `ARCHITECTURE.md` named settlement as the subdomain that
-could swallow the project. Its invariant, that shares sum exactly to the total, is held
-structurally by the payer absorbing the remainder (D13) and checked over thousands of
-random inputs rather than only enumerated cases.
+**The money arithmetic lives behind a module boundary** — `src/expenses/split.ts` and
+`src/expenses/settle.ts`, both pure functions with no database and no HTTP — because this
+is the subdomain named below as the one that could swallow the project. Two invariants
+carry it, and both are property-tested over thousands of random inputs rather than only
+enumerated cases:
+
+- shares sum exactly to their expense total, held structurally by the payer absorbing the
+  remainder (D13);
+- a settlement plan clears the balances it was built from, in at most `n − 1` payments.
+
+**A settled trip's expenses are read-only** (D14). An owner can reopen it, which is the
+escape hatch for a mistake and also a real hole in that immutability — see ADR-0009.
 
 **A booking's dates describe what was paid for, not what was used.** Those legitimately
 differ — an apartment booked for a whole trip and slept in for three nights, or a stay
@@ -185,9 +194,13 @@ consumer:
   (14 days), revocation and single use are implemented, and each link is bound to one
   participant seat — but a link pasted into a group chat is still a link anyone in that
   chat can use until it is claimed or revoked. See ADR-0005.
-- **There is no audit trail on an expense.** An edit replaces the shares outright, so
-  who changed what, and when, is not recoverable. Step 7 adds the rule that a settled
-  expense is immutable (D14), which bounds the damage but does not record history.
+- **There is no audit trail on an expense, and reopening a settled trip leaves no trace.**
+  An edit replaces the shares outright, and a settled trip is read-only only while its
+  owner leaves it settled. Locking bounds the damage; it does not record history. This is
+  the first thing to fix if expense history ever matters.
+- **A participant who appears in a recorded payment cannot be removed**, because those
+  foreign keys are `restrict`. Correct — half a payment is worse than a refusal — but it
+  surfaces as a constraint violation rather than a considered message.
 - **Private spend is enforced by every query that reads expenses**, not by a row-level
   policy. Each handler filters on the payer's own seat; a future reader that forgets has
   no backstop.
@@ -233,3 +246,4 @@ here.
 | 0006 | Migrations from an init container, not the application process |
 | 0007 | Bulk day moves pass through non-colliding values |
 | 0008 | An expense edit that moves money must restate the split |
+| 0009 | Derived balances, greedy simplification, lock rather than version |

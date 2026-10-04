@@ -26,7 +26,7 @@ watched working.
       `replaced_by`, and materialised per-entry attendance.
 - [x] **5 — Bookings.** Lodging, transit and event bookings as one registry.
       Per-night lodging selection on a day, and many-to-many transit and event links.
-- [ ] **6 — Expenses.** Per-day, per-booking and per-entry costs with shares, the
+- [x] **6 — Expenses.** Per-day, per-booking and per-entry costs with shares, the
       payer-holds-remainder rule, private spend, and totals grouped by currency.
 - [ ] **7 — Settlement.** Derived per-participant balances, a simplified settlement
       plan, recorded settlements, and the lock that makes expenses immutable once
