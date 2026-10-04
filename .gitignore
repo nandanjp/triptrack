@@ -1,0 +1,16 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+*.tsbuildinfo
+
+# Environment — secrets are created with kubectl, never committed
+.env
+.env.*
+!.env.example
+
+# Local tooling
+.DS_Store
+coverage/
+*.log
