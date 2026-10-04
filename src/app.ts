@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { authRoutes } from "./auth/routes.ts";
+import { itineraryRoutes } from "./itinerary/routes.ts";
 import { inviteRoutes } from "./trips/invite-routes.ts";
 import { tripRoutes } from "./trips/routes.ts";
 import { BUILD_VERSION } from "./config.ts";
@@ -27,6 +28,7 @@ export function createApp(options: AppOptions = {}): Hono {
 
   app.route("/api/auth", authRoutes);
   app.route("/api/trips", tripRoutes);
+  app.route("/api/trips", itineraryRoutes);
   // Mounted outside /api/trips because the preview must work when signed out.
   app.route("/api/invites", inviteRoutes);
 

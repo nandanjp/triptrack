@@ -32,6 +32,7 @@ browser
         └── TripTrack  ── Hono on Node, :8080
               ├── /api/auth/*  register · login · logout · me
               ├── /api/trips/* trips · participants · invite issuing
+              │                areas · days · date shift · entries · attendance
               ├── /api/invites/*  preview (public) · accept · revoke
               ├── /api/*       404 as JSON, never the SPA
               ├── /*           React SPA, served as static assets
@@ -90,6 +91,11 @@ volume-free. Two consequences follow from the homelab reference: env-injected se
 are read once at process start, so rotating the signing secret requires a
 `kubectl rollout restart` rather than taking effect on its own; and rotating it
 invalidates every live session. See ADR-0005.
+
+**Day numbers and dates are moved through non-colliding ranges**, not by deferring their
+unique indexes — Postgres checks those per row during an UPDATE, so an overlapping bulk
+move fails partway. Day numbers pass through negatives, dates park 100,000 days out, both
+inside a transaction. ADR-0007 has the reasoning and the alternatives.
 
 **Only a hash of each invite token is stored**, so a database leak yields no working
 invites. The plaintext is returned once, when the link is issued, and is not retrievable
@@ -152,6 +158,9 @@ consumer:
   (14 days), revocation and single use are implemented, and each link is bound to one
   participant seat — but a link pasted into a group chat is still a link anyone in that
   chat can use until it is claimed or revoked. See ADR-0005.
+- **`day_number` has no positivity CHECK**, because renumbering routes it through
+  negative values inside a transaction (ADR-0007). The range is validated in the
+  application instead, so a direct SQL write could leave a nonsensical number behind.
 - **Trip visibility is enforced per request, not by a row-level policy.** Every handler
   resolves membership before touching trip data, and answers 404 rather than 403 so
   existence does not leak. It is correct but it is application-level, so a handler that
@@ -185,3 +194,4 @@ here.
 | 0004 | Postgres in-cluster, rather than SQLite |
 | 0005 | Shareable invite links, and no email in the system |
 | 0006 | Migrations from an init container, not the application process |
+| 0007 | Bulk day moves pass through non-colliding values |

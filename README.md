@@ -15,10 +15,10 @@ watched working.
       pipeline: Helm chart, Argo CD Application, image build that pins its own tag,
       graceful shutdown and the rollout strategy. **This one deploys.** Proven by
       pushing a commit and reading the SHA back off `/health`.
-- [ ] **2 — Postgres, migrations and accounts.** Brings in the datastore, Drizzle
+- [x] **2 — Postgres, migrations and accounts.** Brings in the datastore, Drizzle
       migrations, and local accounts with signed session cookies. First step with
       required environment variables.
-- [ ] **3 — Trips, participants and invite links.** The root aggregate, owned by an
+- [x] **3 — Trips, participants and invite links.** The root aggregate, owned by an
       account. Participants with a nullable user link, and signed invite links with
       expiry and revocation.
 - [ ] **4 — Itinerary.** Trip locations, days keyed by `day_number` with bulk date
