@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "target": "es2023",
+    "lib": ["es2023", "dom", "dom.iterable"],
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    // Node strips types rather than compiling them, so only erasable syntax
+    // runs. This turns `enum`, namespaces and parameter properties into
+    // compile errors instead of ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX at boot.
+    "erasableSyntaxOnly": true,
+    "verbatimModuleSyntax": true,
+    "skipLibCheck": true,
+    "jsx": "react-jsx"
+  },
+  "include": ["src", "test", "web/src", "scripts", "vite.config.ts"]
+}

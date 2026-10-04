@@ -1,0 +1,37 @@
+# Registers this service with the shared Argo CD instance that ../dramadive
+# installs. This repo does not install or configure Argo CD itself.
+# Applied once by hand; everything after flows through git.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: triptrack
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    # SSH, because the repo is private and Argo CD reads it with a deploy key.
+    repoURL: git@github.com:nandanjp/triptrack.git
+    targetRevision: main
+    path: charts/triptrack
+    helm:
+      releaseName: triptrack
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: triptrack
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ApplyOutOfSyncOnly=true
+      - PruneLast=true
+      - ServerSideApply=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 3m

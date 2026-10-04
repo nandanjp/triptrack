@@ -1,0 +1,10 @@
+node_modules
+dist
+.git
+.github
+charts
+argocd
+docs
+*.md
+.env
+.env.*

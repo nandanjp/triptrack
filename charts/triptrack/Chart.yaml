@@ -1,0 +1,6 @@
+apiVersion: v2
+name: triptrack
+description: Plan a trip, live it and log it in one place
+type: application
+# Bump when the templates change, not when the app does.
+version: 0.1.0

@@ -1,0 +1,68 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Chart.Name }}
+  labels:
+    app: {{ .Chart.Name }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  # Always at least one Ready pod, so a bad image fails the rollout instead of
+  # taking the service down.
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  minReadySeconds: {{ .Values.rollout.minReadySeconds }}
+  progressDeadlineSeconds: {{ .Values.rollout.progressDeadlineSeconds }}
+  revisionHistoryLimit: {{ .Values.rollout.revisionHistoryLimit }}
+  selector:
+    matchLabels:
+      app: {{ .Chart.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Chart.Name }}
+    spec:
+      terminationGracePeriodSeconds: {{ .Values.rollout.terminationGracePeriodSeconds }}
+      containers:
+        - name: app
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.service.port }}
+          env:
+            - name: PORT
+              value: {{ .Values.service.port | quote }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          # Gates the other two, so neither needs an initialDelaySeconds guess.
+          startupProbe:
+            httpGet: { path: /health/live, port: {{ .Values.service.port }} }
+            periodSeconds: 2
+            timeoutSeconds: 2
+            failureThreshold: 30
+          # Reflects only this process, never upstream health: gating on those
+          # would pull the only replica out during a third-party outage.
+          readinessProbe:
+            httpGet: { path: /health/ready, port: {{ .Values.service.port }} }
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 2
+          # Answers 200 while draining: restarting would drop in-flight requests.
+          livenessProbe:
+            httpGet: { path: /health/live, port: {{ .Values.service.port }} }
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+      securityContext:
+        runAsNonRoot: true
+        # Matches the distroless nonroot image, so the filesystem it ships is
+        # already owned correctly.
+        runAsUser: 65532
+        runAsGroup: 65532

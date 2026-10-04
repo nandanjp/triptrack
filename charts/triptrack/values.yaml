@@ -1,0 +1,31 @@
+replicaCount: 1
+
+image:
+  repository: nandanjp/triptrack
+  # Rewritten by CI on every push to main. Must stay an immutable sha- tag.
+  tag: sha-0000000
+  pullPolicy: IfNotPresent
+
+service:
+  port: 8080
+
+ingress:
+  # Single-level: the Cloudflare wildcard matches one label.
+  host: triptrack.nandan-hl.dev
+
+resources:
+  requests:
+    cpu: 10m
+    memory: 64Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+
+rollout:
+  # How long the new pod must hold Ready before the old one is retired.
+  minReadySeconds: 10
+  progressDeadlineSeconds: 180
+  revisionHistoryLimit: 5
+  # Must exceed the drain plus shutdown budget in src/config.ts, which
+  # test/shutdown-budget.test.ts asserts against this value.
+  terminationGracePeriodSeconds: 30
