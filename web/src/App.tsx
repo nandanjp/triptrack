@@ -9,7 +9,7 @@ import { TripDetail } from "./TripDetail.tsx";
 import { TripsHome } from "./TripsHome.tsx";
 import { navigate, usePath } from "./routing.ts";
 import { Button } from "@/ui/button.tsx";
-import { Sheet } from "@/ui/dialog.tsx";
+import { Sheet } from "@/components/sheet.tsx";
 
 export function App() {
   const [account, setAccount] = useState<Account | null>(null);
@@ -48,7 +48,8 @@ export function App() {
   }
 
   if (!checked) {
-    return <div className="grid min-h-dvh place-items-center text-sm text-subtle">Loading</div>;
+    // Nothing at all until the session check is slow enough to notice.
+    return null;
   }
 
   if (account === null) {
@@ -83,18 +84,18 @@ export function App() {
 
   return (
     <div className="md:grid md:min-h-dvh md:grid-cols-[16rem_1fr]">
-      <aside className="sticky top-0 hidden h-dvh border-r border-line md:block">{sidebar}</aside>
+      <aside className="sticky top-0 hidden h-dvh border-r border-border md:block">{sidebar}</aside>
 
       <Sheet open={navOpen} onOpenChange={setNavOpen} title="Trips">
         {sidebar}
       </Sheet>
 
       <div className="min-w-0">
-        <header className="sticky top-0 z-30 flex items-center gap-2 border-b border-line bg-surface/85 px-3 py-2 backdrop-blur md:hidden">
+        <header className="sticky top-0 z-30 flex items-center gap-2 border-b border-border bg-background/85 px-3 py-2 backdrop-blur md:hidden">
           <Button variant="ghost" size="icon" aria-label="Trips" onClick={() => setNavOpen(true)}>
             <MenuIcon />
           </Button>
-          <span className="font-serif text-base text-ink">TripTrack</span>
+          <span className="font-serif text-base text-foreground">TripTrack</span>
         </header>
 
         <main className="mx-auto w-full max-w-4xl px-4 py-6 md:px-8 md:py-10">

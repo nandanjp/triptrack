@@ -1,13 +1,21 @@
 import { useEffect, useState } from "react";
 import { BedDouble, CalendarCheck, Plane, Plus, Trash2 } from "lucide-react";
 import { api, type Booking, type BookingKind, type NewBooking } from "./api.ts";
-import { cn } from "@/lib/utils.ts";
+import { cn } from "cn";
 import { Badge } from "@/ui/badge.tsx";
 import { Button } from "@/ui/button.tsx";
-import { Dialog } from "@/ui/dialog.tsx";
-import { Field } from "@/ui/field.tsx";
-import { Input, Select } from "@/ui/input.tsx";
-import { Empty, Panel, PanelHeader } from "@/ui/surface.tsx";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/ui/dialog.tsx";
+import { Field } from "@/components/field.tsx";
+import { Input } from "@/ui/input.tsx";
+import { OptionSelect } from "@/components/option-select.tsx";
+import { Empty, Panel, PanelHeader } from "@/components/section.tsx";
+import { ListPlaceholder } from "@/components/placeholders.tsx";
 
 const KINDS: { value: BookingKind; label: string; plural: string; icon: typeof Plane }[] = [
   { value: "lodging", label: "Stay", plural: "Stays", icon: BedDouble },
@@ -78,7 +86,7 @@ export function Bookings({
     }
   };
 
-  if (bookings === null) return <p className="text-sm text-subtle">Loading</p>;
+  if (bookings === null) return <ListPlaceholder />;
 
   const lodging = draft.kind === "lodging";
 
@@ -89,7 +97,7 @@ export function Bookings({
           title="Bookings"
           description="Stays, travel and anything booked ahead. Assign them to days on the Days tab — what you paid for and what you used are allowed to differ."
           action={
-            <Button variant="primary" size="sm" onClick={() => setOpen(true)}>
+            <Button variant="default" size="sm" onClick={() => setOpen(true)}>
               <Plus />
               Add booking
             </Button>
@@ -102,10 +110,10 @@ export function Bookings({
             against the days you assign it to.
           </Empty>
         ) : (
-          <div className="divide-y divide-line">
+          <div className="divide-y divide-border">
             {KINDS.filter((kind) => bookings.some((b) => b.kind === kind.value)).map((kind) => (
               <section key={kind.value}>
-                <h3 className="flex items-center gap-2 px-4 pt-3 pb-1 text-sm font-medium text-muted">
+                <h3 className="flex items-center gap-2 px-4 pt-3 pb-1 text-sm font-medium text-muted-foreground">
                   <kind.icon className="size-3.5 text-subtle" />
                   {kind.plural}
                 </h3>
@@ -121,23 +129,23 @@ export function Bookings({
                       return (
                         <li
                           key={booking.id}
-                          className="group flex flex-wrap items-baseline gap-x-3 gap-y-1 px-4 py-2.5 transition-colors hover:bg-sunken"
+                          className="group flex flex-wrap items-baseline gap-x-3 gap-y-1 px-4 py-2.5 transition-colors hover:bg-accent"
                         >
                           <span className="min-w-0 flex-1">
                             <span
                               className={cn(
                                 "font-medium",
-                                booking.status === "cancelled" ? "text-subtle line-through" : "text-ink",
+                                booking.status === "cancelled" ? "text-subtle line-through" : "text-foreground",
                               )}
                             >
                               {booking.title}
                             </span>
                             {booking.status !== "booked" && (
-                              <Badge tone="caution" className="ml-2">
+                              <Badge variant="outline" className="ml-2 text-caution">
                                 {booking.status}
                               </Badge>
                             )}
-                            <span className="numeric mt-0.5 flex flex-wrap items-center gap-x-3 text-sm text-muted">
+                            <span className="numeric mt-0.5 flex flex-wrap items-center gap-x-3 text-sm text-muted-foreground">
                               <span>{when(booking)}</span>
                               {booking.provider !== null && <span>{booking.provider}</span>}
                               {booking.confirmationCode !== null && (
@@ -182,26 +190,13 @@ export function Bookings({
         )}
       </Panel>
 
-      {error !== null && <p className="text-sm text-danger">{error}</p>}
+      {error !== null && <p className="text-sm text-destructive">{error}</p>}
 
-      <Dialog
-        open={open}
-        onOpenChange={setOpen}
-        title="Add booking"
-        footer={
-          <>
-            <Button onClick={() => setOpen(false)}>Cancel</Button>
-            <Button
-              type="submit"
-              form="new-booking"
-              variant="primary"
-              disabled={busy || draft.title.trim() === "" || draft.startsAt === ""}
-            >
-              {busy ? "Working" : "Add booking"}
-            </Button>
-          </>
-        }
-      >
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add booking</DialogTitle>
+          </DialogHeader>
         <form
           id="new-booking"
           className="grid gap-4"
@@ -221,16 +216,11 @@ export function Bookings({
           }}
         >
           <Field label="Kind">
-            <Select
+            <OptionSelect
               value={draft.kind}
-              onChange={(e) => setDraft({ ...draft, kind: e.target.value as BookingKind })}
-            >
-              {KINDS.map((kind) => (
-                <option key={kind.value} value={kind.value}>
-                  {kind.label}
-                </option>
-              ))}
-            </Select>
+              onValueChange={(value) => setDraft({ ...draft, kind: value as BookingKind })}
+              options={KINDS.map((kind) => ({ value: kind.value, label: kind.label }))}
+            />
           </Field>
 
           <Field label="What it is">
@@ -280,10 +270,24 @@ export function Bookings({
             </Field>
           </div>
 
-          <p className="text-sm text-muted">
-            What it cost goes on the Money tab, so a refund can be recorded against it later.
-          </p>
-        </form>
+            <p className="text-sm text-muted-foreground">
+              What it cost goes on the Money tab, so a refund can be recorded against it later.
+            </p>
+          </form>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              form="new-booking"
+              disabled={busy || draft.title.trim() === "" || draft.startsAt === ""}
+            >
+              {busy ? "Working" : "Add booking"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
       </Dialog>
     </div>
   );

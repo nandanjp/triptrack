@@ -35,12 +35,12 @@ export function TripsHome({
   if (trips.length === 0) {
     return (
       <div className="max-w-prose">
-        <h1 className="font-serif text-3xl text-ink">Start a trip</h1>
-        <p className="mt-2 text-muted">
+        <h1 className="font-serif text-3xl text-foreground">Start a trip</h1>
+        <p className="mt-2 text-muted-foreground">
           Name somewhere you are going, then build it up day by day. The plan becomes the record
           as you go, so there is nothing to write up afterwards.
         </p>
-        <Button variant="primary" size="lg" className="mt-6" onClick={onNewTrip}>
+        <Button variant="default" size="lg" className="mt-6" onClick={onNewTrip}>
           <Plus />
           New trip
         </Button>
@@ -50,27 +50,27 @@ export function TripsHome({
 
   return (
     <div>
-      <h1 className="font-serif text-3xl text-ink">Trips</h1>
-      <p className="mt-1 text-muted">Soonest first. Past trips follow, then the undated ones.</p>
+      <h1 className="font-serif text-3xl text-foreground">Trips</h1>
+      <p className="mt-1 text-muted-foreground">Soonest first. Past trips follow, then the undated ones.</p>
 
-      <ul className="mt-7 grid gap-px overflow-hidden rounded-lg border border-line bg-line">
+      <ul className="mt-7 grid gap-px overflow-hidden rounded-lg border border-border bg-border">
         {trips.map((trip) => (
           <li key={trip.id}>
             <button
               type="button"
               onClick={() => navigate(`/trips/${trip.id}`)}
-              className="group flex w-full items-center gap-4 bg-raised px-4 py-3.5 text-left transition-colors hover:bg-sunken"
+              className="group flex w-full items-center gap-4 bg-card px-4 py-3.5 text-left transition-colors hover:bg-accent"
             >
               <span className="min-w-0 flex-1">
-                <span className="block truncate font-medium text-ink">{trip.name}</span>
-                <span className="numeric mt-0.5 flex flex-wrap items-center gap-x-3 text-sm text-muted">
+                <span className="block truncate font-medium text-foreground">{trip.name}</span>
+                <span className="numeric mt-0.5 flex flex-wrap items-center gap-x-3 text-sm text-muted-foreground">
                   <span>{range(trip)}</span>
                   {nights(trip) !== null && <span>{nights(trip)}</span>}
                 </span>
               </span>
 
-              {trip.status !== "planning" && <Badge>{trip.status}</Badge>}
-              {trip.role === "owner" && <Badge tone="accent">owner</Badge>}
+              {trip.status !== "planning" && <Badge variant="secondary">{trip.status}</Badge>}
+              {trip.role === "owner" && <Badge variant="default">owner</Badge>}
 
               <ArrowRight className="size-4 shrink-0 text-subtle transition-transform group-hover:translate-x-0.5" />
             </button>

@@ -1,10 +1,17 @@
 import { Map, Plus } from "lucide-react";
 import { api, type Account, type TripSummary } from "./api.ts";
 import { navigate } from "./routing.ts";
-import { cn } from "@/lib/utils.ts";
+import { cn } from "cn";
 import { Button } from "@/ui/button.tsx";
-import { Menu, MenuItem, MenuLabel, MenuSeparator } from "@/ui/menu.tsx";
-import { ThemeToggle } from "@/ui/theme-toggle.tsx";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/ui/dropdown-menu.tsx";
+import { ThemeToggle } from "@/components/theme-toggle.tsx";
 
 /** Short form, because the sidebar is narrow: "12 Apr" beats "2027-04-12". */
 const shortDate = (iso: string): string =>
@@ -38,12 +45,12 @@ export function Sidebar({
   };
 
   return (
-    <div className="flex h-full flex-col bg-sunken">
+    <div className="flex h-full flex-col bg-accent">
       <div className="px-4 pt-4 pb-3">
         <button
           type="button"
           onClick={() => go("/")}
-          className="font-serif text-lg text-ink transition-opacity hover:opacity-70"
+          className="font-serif text-lg text-foreground transition-opacity hover:opacity-70"
         >
           TripTrack
         </button>
@@ -63,10 +70,10 @@ export function Sidebar({
                     onClick={() => go(`/trips/${trip.id}`)}
                     className={cn(
                       "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors",
-                      active ? "bg-raised font-medium text-ink shadow-sm" : "text-muted hover:bg-raised/60 hover:text-ink",
+                      active ? "bg-card font-medium text-foreground shadow-sm" : "text-muted-foreground hover:bg-card/60 hover:text-foreground",
                     )}
                   >
-                    <Map className={cn("size-4 shrink-0", active ? "text-accent" : "text-subtle")} />
+                    <Map className={cn("size-4 shrink-0", active ? "text-primary" : "text-subtle")} />
                     <span className="min-w-0 flex-1 truncate">{trip.name}</span>
                     <span className="numeric shrink-0 text-xs text-subtle">{range(trip)}</span>
                   </button>
@@ -90,20 +97,23 @@ export function Sidebar({
         </Button>
       </nav>
 
-      <footer className="flex items-center gap-1 border-t border-line px-2 py-2">
-        <Menu
-          trigger={
+      <footer className="flex items-center gap-1 border-t border-border px-2 py-2">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="sm" className="min-w-0 flex-1 justify-start font-normal">
               <span className="truncate">{account.email}</span>
             </Button>
-          }
-        >
-          <MenuLabel>{account.email}</MenuLabel>
-          <MenuSeparator />
-          <MenuItem onSelect={onSignOut} tone="danger">
-            Sign out
-          </MenuItem>
-        </Menu>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-56">
+            <DropdownMenuLabel className="truncate font-normal text-muted-foreground">
+              {account.email}
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem variant="destructive" onSelect={onSignOut}>
+              Sign out
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
         <ThemeToggle />
       </footer>
     </div>

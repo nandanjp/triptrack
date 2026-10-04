@@ -10,72 +10,133 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 /*
-  Light is the default and dark is a real design, not an inversion: the dark
-  surfaces are a cool slate rather than black, and the accent lightens so it
-  keeps its contrast against them.
+  shadcn's token contract, with this project's palette in it. Keeping their
+  names is what lets `npx shadcn add` keep working: a generated component
+  reaches for --primary and --accent and finds something sensible.
+
+  Note that in shadcn's vocabulary --accent is a *subtle hover surface*, not a
+  brand colour. The brand is --primary. Getting that backwards floods every
+  ghost button with the accent.
 */
 :root {
-  --surface: #fcfcfd;
-  --surface-raised: #ffffff;
-  --surface-sunken: #f4f5f7;
-  --ink: #1c1e26;
-  --ink-muted: #6b6f7b;
-  --ink-subtle: #9095a1;
-  --border: #e6e7eb;
-  --border-strong: #d4d6dc;
+  --radius: 0.625rem;
+
+  --background: #fcfcfd;
+  --foreground: #1c1e26;
+  --card: #ffffff;
+  --card-foreground: #1c1e26;
+  --popover: #ffffff;
+  --popover-foreground: #1c1e26;
 
   /* Petrol, from chart and map ink — not a product blue. */
-  --accent: #0e6e6b;
-  --accent-hover: #0b5a57;
-  --accent-fg: #ffffff;
-  --accent-soft: #e3f2f1;
+  --primary: #0e6e6b;
+  --primary-foreground: #ffffff;
 
-  /* Money reads as direction, not success and failure: being owed is green,
-     owing is amber. Owing somebody is not an error. */
+  --secondary: #f4f5f7;
+  --secondary-foreground: #1c1e26;
+  --muted: #f4f5f7;
+  --muted-foreground: #6b6f7b;
+  --accent: #f1f2f4;
+  --accent-foreground: #1c1e26;
+
+  --destructive: #b4432f;
+  --border: #e6e7eb;
+  --input: #dfe1e6;
+  --ring: #0e6e6b;
+
+  --sidebar: #f4f5f7;
+  --sidebar-foreground: #1c1e26;
+  --sidebar-primary: #0e6e6b;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #e9ebef;
+  --sidebar-accent-foreground: #1c1e26;
+  --sidebar-border: #e6e7eb;
+  --sidebar-ring: #0e6e6b;
+
+  /*
+    Beyond shadcn: a third text tier for data that should recede, and the two
+    money directions. Being owed is green and owing is amber — owing somebody
+    is not an error, so it is deliberately not the destructive colour.
+  */
+  --subtle: #9095a1;
   --positive: #2f7d4f;
   --caution: #9a6400;
-  --danger: #b4432f;
-  --danger-soft: #fdece8;
 }
 
-:root.dark {
-  --surface: #17181c;
-  --surface-raised: #1e2027;
-  --surface-sunken: #22242c;
-  --ink: #e8e9ed;
-  --ink-muted: #9a9fac;
-  --ink-subtle: #70757f;
+.dark {
+  --background: #17181c;
+  --foreground: #e8e9ed;
+  --card: #1e2027;
+  --card-foreground: #e8e9ed;
+  --popover: #1e2027;
+  --popover-foreground: #e8e9ed;
+
+  --primary: #3dbdb5;
+  --primary-foreground: #0a1f1e;
+
+  --secondary: #22242c;
+  --secondary-foreground: #e8e9ed;
+  --muted: #22242c;
+  --muted-foreground: #9a9fac;
+  --accent: #262932;
+  --accent-foreground: #e8e9ed;
+
+  --destructive: #e08572;
   --border: #2a2c34;
-  --border-strong: #3a3d47;
+  --input: #343741;
+  --ring: #3dbdb5;
 
-  --accent: #3dbdb5;
-  --accent-hover: #55cdc5;
-  --accent-fg: #0a1f1e;
-  --accent-soft: #15302f;
+  --sidebar: #1b1d22;
+  --sidebar-foreground: #e8e9ed;
+  --sidebar-primary: #3dbdb5;
+  --sidebar-primary-foreground: #0a1f1e;
+  --sidebar-accent: #262932;
+  --sidebar-accent-foreground: #e8e9ed;
+  --sidebar-border: #2a2c34;
+  --sidebar-ring: #3dbdb5;
 
+  --subtle: #70757f;
   --positive: #5fbf85;
   --caution: #d4a24a;
-  --danger: #e08572;
-  --danger-soft: #35211d;
 }
 
 @theme inline {
-  --color-surface: var(--surface);
-  --color-raised: var(--surface-raised);
-  --color-sunken: var(--surface-sunken);
-  --color-ink: var(--ink);
-  --color-muted: var(--ink-muted);
-  --color-subtle: var(--ink-subtle);
-  --color-line: var(--border);
-  --color-line-strong: var(--border-strong);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
   --color-accent: var(--accent);
-  --color-accent-hover: var(--accent-hover);
-  --color-accent-fg: var(--accent-fg);
-  --color-accent-soft: var(--accent-soft);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --color-subtle: var(--subtle);
   --color-positive: var(--positive);
   --color-caution: var(--caution);
-  --color-danger: var(--danger);
-  --color-danger-soft: var(--danger-soft);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
 
   --font-sans: "IBM Plex Sans Variable", ui-sans-serif, system-ui, sans-serif;
   --font-serif: "IBM Plex Serif", Georgia, serif;
@@ -96,17 +157,11 @@
   --text-2xl--line-height: 1.25;
   --text-3xl: 2rem;
   --text-3xl--line-height: 1.15;
-
-  /* Deliberately three radii, not one on everything: controls are tighter
-     than containers. */
-  --radius-sm: 0.25rem;
-  --radius-md: 0.375rem;
-  --radius-lg: 0.625rem;
 }
 
 @layer base {
   * {
-    border-color: var(--border);
+    @apply border-border outline-ring/50;
   }
 
   html {
@@ -118,24 +173,12 @@
   }
 
   body {
-    background: var(--surface);
-    color: var(--ink);
+    @apply bg-background text-foreground;
     font-family: var(--font-sans);
     font-size: var(--text-base);
     line-height: 1.55;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
-  }
-
-  /* Visible focus everywhere, including for keyboard users who never see a
-     mouse pointer. */
-  :focus-visible {
-    outline: 2px solid var(--accent);
-    outline-offset: 2px;
-  }
-
-  ::selection {
-    background: var(--accent-soft);
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -148,12 +191,16 @@
   }
 }
 
-@utility tabular {
+/* Money, times and dates line up in columns; proportional digits wobble. */
+@utility numeric {
   font-variant-numeric: tabular-nums;
 }
 
-/* Money and dates line up in columns; proportional digits make them wobble. */
-@utility numeric {
-  font-variant-numeric: tabular-nums;
-  font-feature-settings: "ss01";
+/*
+  A date or datetime input has a wide intrinsic minimum, so inside a grid or
+  flex track it refuses to shrink and punches out of a dialog. Grid and flex
+  children default to min-width:auto, which is what lets that happen.
+*/
+@utility shrinkable {
+  min-width: 0;
 }
