@@ -38,7 +38,11 @@ export type Participant = {
   hasAccount: boolean;
 };
 
-export type TripDetail = TripSummary & { participants: Participant[] };
+export type TripDetail = TripSummary & {
+  /** The caller's own seat, for defaulting who paid. */
+  myParticipantId: string;
+  participants: Participant[];
+};
 
 export type InvitePreview = {
   state: "valid" | "revoked" | "claimed" | "expired";
@@ -114,6 +118,47 @@ export type Day = {
   lodging: { id: string; title: string; status: BookingStatus } | null;
   bookings: { id: string; kind: BookingKind; title: string; status: BookingStatus }[];
   entries: Entry[];
+};
+
+export type ExpenseShareView = { participantId: string; displayName: string; amountMinor: number };
+
+export type Expense = {
+  id: string;
+  description: string;
+  amountMinor: number;
+  currency: string;
+  paidByParticipantId: string;
+  paidByName: string;
+  splitMode: "equal" | "exact";
+  isPrivate: boolean;
+  dayId: string | null;
+  bookingId: string | null;
+  entryId: string | null;
+  shares: ExpenseShareView[];
+};
+
+export type CurrencyTotal = { currency: string; totalMinor: number };
+
+export type ExpenseSummary = {
+  /** Everything the group sees. Private spend is excluded by design. */
+  shared: CurrencyTotal[];
+  /** My share of the group's spending, plus all of my private spending. */
+  mine: CurrencyTotal[];
+  perDay: { dayId: string; currency: string; totalMinor: number }[];
+};
+
+export type NewExpense = {
+  description: string;
+  amountMinor: number;
+  currency: string;
+  paidByParticipantId?: string;
+  dayId?: string | null;
+  bookingId?: string | null;
+  entryId?: string | null;
+  splitMode?: "equal" | "exact";
+  consumerIds?: string[];
+  exactShares?: { participantId: string; amountMinor: number }[];
+  isPrivate?: boolean;
 };
 
 export const api = {
@@ -202,6 +247,14 @@ export const api = {
     call(`/api/trips/${tripId}/days/${dayId}/lodging`, { method: "PUT", body: JSON.stringify({ bookingId }) }),
   setDayBookings: (tripId: string, dayId: string, bookingIds: string[]): Promise<unknown> =>
     call(`/api/trips/${tripId}/days/${dayId}/bookings`, { method: "PUT", body: JSON.stringify({ bookingIds }) }),
+
+  expenses: (tripId: string): Promise<Expense[]> => call<Expense[]>(`/api/trips/${tripId}/expenses`),
+  expenseSummary: (tripId: string): Promise<ExpenseSummary> =>
+    call<ExpenseSummary>(`/api/trips/${tripId}/expenses/summary`),
+  addExpense: (tripId: string, expense: NewExpense): Promise<Expense> =>
+    call(`/api/trips/${tripId}/expenses`, { method: "POST", body: JSON.stringify(expense) }),
+  removeExpense: (tripId: string, expenseId: string): Promise<unknown> =>
+    call(`/api/trips/${tripId}/expenses/${expenseId}`, { method: "DELETE" }),
 
   renameParticipant: (tripId: string, participantId: string, displayName: string): Promise<Participant> =>
     call(`/api/trips/${tripId}/participants/${participantId}`, {

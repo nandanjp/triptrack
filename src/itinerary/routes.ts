@@ -1,6 +1,6 @@
-import { zValidator } from "@hono/zod-validator";
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { Hono } from "hono";
+import { jsonBody } from "../http/validate.ts";
 import type { Context } from "hono";
 import { z } from "zod";
 import { requireSession, type AuthenticatedEnv } from "../auth/session.ts";
@@ -147,7 +147,7 @@ export const itineraryRoutes = new Hono<AuthenticatedEnv>()
 
   .post(
     "/:tripId/locations",
-    zValidator("json", z.object({ name: z.string().trim().min(1).max(200), lat: z.number().optional(), lng: z.number().optional() })),
+    jsonBody(z.object({ name: z.string().trim().min(1).max(200), lat: z.number().optional(), lng: z.number().optional() })),
     async (c) => {
       const tripId = await requireMember(c);
       if (tripId === undefined) return tripNotFound(c);
@@ -266,7 +266,7 @@ export const itineraryRoutes = new Hono<AuthenticatedEnv>()
     );
   })
 
-  .post("/:tripId/days", zValidator("json", newDay), async (c) => {
+  .post("/:tripId/days", jsonBody(newDay), async (c) => {
     const tripId = await requireMember(c);
     if (tripId === undefined) return tripNotFound(c);
 
@@ -305,7 +305,7 @@ export const itineraryRoutes = new Hono<AuthenticatedEnv>()
 
   .post(
     "/:tripId/days/shift",
-    zValidator("json", z.object({ byDays: z.number().int().gte(-3650).lte(3650) })),
+    jsonBody(z.object({ byDays: z.number().int().gte(-3650).lte(3650) })),
     async (c) => {
       const tripId = await requireMember(c);
       if (tripId === undefined) return tripNotFound(c);
@@ -339,7 +339,7 @@ export const itineraryRoutes = new Hono<AuthenticatedEnv>()
     return removed ? c.body(null, 204) : c.json({ error: "day not found" }, 404);
   })
 
-  .post("/:tripId/days/:dayId/entries", zValidator("json", newEntry), async (c) => {
+  .post("/:tripId/days/:dayId/entries", jsonBody(newEntry), async (c) => {
     const tripId = await requireMember(c);
     if (tripId === undefined) return tripNotFound(c);
 
@@ -405,7 +405,7 @@ export const itineraryRoutes = new Hono<AuthenticatedEnv>()
     return c.json({ ...entry, attendeeIds }, 201);
   })
 
-  .patch("/:tripId/days/:dayId", zValidator("json", patchDay), async (c) => {
+  .patch("/:tripId/days/:dayId", jsonBody(patchDay), async (c) => {
     const tripId = await requireMember(c);
     if (tripId === undefined) return tripNotFound(c);
 
@@ -449,7 +449,7 @@ export const itineraryRoutes = new Hono<AuthenticatedEnv>()
     return updated === undefined ? c.json({ error: "day not found" }, 404) : c.json(updated);
   })
 
-  .patch("/:tripId/entries/:entryId", zValidator("json", patchEntry), async (c) => {
+  .patch("/:tripId/entries/:entryId", jsonBody(patchEntry), async (c) => {
     const tripId = await requireMember(c);
     if (tripId === undefined) return tripNotFound(c);
 
@@ -486,7 +486,7 @@ export const itineraryRoutes = new Hono<AuthenticatedEnv>()
    * The lifecycle, kept separate from editing because changing what happened
    * is a different act from fixing a typo in the title.
    */
-  .post("/:tripId/entries/:entryId/status", zValidator("json", patchStatus), async (c) => {
+  .post("/:tripId/entries/:entryId/status", jsonBody(patchStatus), async (c) => {
     const tripId = await requireMember(c);
     if (tripId === undefined) return tripNotFound(c);
 
@@ -525,7 +525,7 @@ export const itineraryRoutes = new Hono<AuthenticatedEnv>()
   /** Replaces the attendee set outright; the list is the state, not a delta. */
   .put(
     "/:tripId/entries/:entryId/attendees",
-    zValidator("json", z.object({ participantIds: z.array(z.string().uuid()) })),
+    jsonBody(z.object({ participantIds: z.array(z.string().uuid()) })),
     async (c) => {
       const tripId = await requireMember(c);
       if (tripId === undefined) return tripNotFound(c);

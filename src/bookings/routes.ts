@@ -1,6 +1,6 @@
-import { zValidator } from "@hono/zod-validator";
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { Hono } from "hono";
+import { jsonBody } from "../http/validate.ts";
 import type { Context } from "hono";
 import { z } from "zod";
 import { requireSession, type AuthenticatedEnv } from "../auth/session.ts";
@@ -107,7 +107,7 @@ export const bookingRoutes = new Hono<AuthenticatedEnv>()
     return c.json(rows.map((b) => ({ ...b, usedDayCount: used.get(b.id) ?? 0 })));
   })
 
-  .post("/:tripId/bookings", zValidator("json", newBooking), async (c) => {
+  .post("/:tripId/bookings", jsonBody(newBooking), async (c) => {
     const tripId = await requireMember(c);
     if (tripId === undefined) return tripNotFound(c);
 
@@ -132,7 +132,7 @@ export const bookingRoutes = new Hono<AuthenticatedEnv>()
     return c.json(created, 201);
   })
 
-  .patch("/:tripId/bookings/:bookingId", zValidator("json", patchBooking), async (c) => {
+  .patch("/:tripId/bookings/:bookingId", jsonBody(patchBooking), async (c) => {
     const tripId = await requireMember(c);
     if (tripId === undefined) return tripNotFound(c);
 
@@ -201,7 +201,7 @@ export const bookingRoutes = new Hono<AuthenticatedEnv>()
    */
   .put(
     "/:tripId/days/:dayId/lodging",
-    zValidator("json", z.object({ bookingId: z.string().uuid().nullable() })),
+    jsonBody(z.object({ bookingId: z.string().uuid().nullable() })),
     async (c) => {
       const tripId = await requireMember(c);
       if (tripId === undefined) return tripNotFound(c);
@@ -236,7 +236,7 @@ export const bookingRoutes = new Hono<AuthenticatedEnv>()
   /** Transit and event bookings used on a day. The list is the state. */
   .put(
     "/:tripId/days/:dayId/bookings",
-    zValidator("json", z.object({ bookingIds: z.array(z.string().uuid()).max(20) })),
+    jsonBody(z.object({ bookingIds: z.array(z.string().uuid()).max(20) })),
     async (c) => {
       const tripId = await requireMember(c);
       if (tripId === undefined) return tripNotFound(c);

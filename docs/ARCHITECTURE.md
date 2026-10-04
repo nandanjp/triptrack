@@ -34,6 +34,7 @@ browser
               ├── /api/trips/* trips · participants · invite issuing
               │                areas · days · date shift · entries · attendance
               │                bookings · per-night lodging · per-day travel
+              │                expenses · shares · totals by currency
               ├── /api/invites/*  preview (public) · accept · revoke
               ├── /api/*       404 as JSON, never the SPA
               ├── /*           React SPA, served as static assets
@@ -92,6 +93,21 @@ volume-free. Two consequences follow from the homelab reference: env-injected se
 are read once at process start, so rotating the signing secret requires a
 `kubectl rollout restart` rather than taking effect on its own; and rotating it
 invalidates every live session. See ADR-0005.
+
+**Money is integer minor units with a currency code (D11).** The exponent belongs to the
+currency — KRW has none, CAD has two — and is a presentation concern, resolved through
+`Intl` rather than a table. `src/expenses/money.ts` is imported by both the API and the
+SPA, which is the shared-code benefit ADR-0003 claimed, actually used.
+
+**Balances are derived from shares and never stored.** `sum(paid) − sum(owed)` per
+participant. A stored running balance is how these systems go quietly wrong. The derived
+settlement plan itself arrives in step 7.
+
+**Splitting lives behind a module boundary** in `src/expenses/split.ts` — pure functions,
+no database, no HTTP — because `ARCHITECTURE.md` named settlement as the subdomain that
+could swallow the project. Its invariant, that shares sum exactly to the total, is held
+structurally by the payer absorbing the remainder (D13) and checked over thousands of
+random inputs rather than only enumerated cases.
 
 **A booking's dates describe what was paid for, not what was used.** Those legitimately
 differ — an apartment booked for a whole trip and slept in for three nights, or a stay
@@ -169,6 +185,12 @@ consumer:
   (14 days), revocation and single use are implemented, and each link is bound to one
   participant seat — but a link pasted into a group chat is still a link anyone in that
   chat can use until it is claimed or revoked. See ADR-0005.
+- **There is no audit trail on an expense.** An edit replaces the shares outright, so
+  who changed what, and when, is not recoverable. Step 7 adds the rule that a settled
+  expense is immutable (D14), which bounds the damage but does not record history.
+- **Private spend is enforced by every query that reads expenses**, not by a row-level
+  policy. Each handler filters on the payer's own seat; a future reader that forgets has
+  no backstop.
 - **A booking's `kind` is enforced in the application, not by the schema.** Nothing at
   the database level stops a transit booking being written into a day's lodging column;
   the handlers check it, and changing a linked booking's kind is refused. A direct SQL
@@ -210,3 +232,4 @@ here.
 | 0005 | Shareable invite links, and no email in the system |
 | 0006 | Migrations from an init container, not the application process |
 | 0007 | Bulk day moves pass through non-colliding values |
+| 0008 | An expense edit that moves money must restate the split |
