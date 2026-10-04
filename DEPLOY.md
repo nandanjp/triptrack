@@ -11,9 +11,21 @@ curl -s https://triptrack.nandan-hl.dev/health
 
 ## Bootstrap — once, by hand
 
-**Status: not yet executed.** The cluster was not reachable from the machine this was
-written on, so every step below is the intended procedure rather than a record of one
-that ran. Each needs its real output pasted in as it is performed, including failures.
+**Status: not yet executed.** Every step below is the intended procedure, not a record of
+one that ran. Each needs its real output pasted in as it is performed, including failures.
+
+The machine this was written on has **no kubeconfig at all** — no `~/.kube/config` and no
+`KUBECONFIG`, so `kubectl` falls back to `localhost:8080` and fails with a connection
+refused that looks like a down cluster but is not. Fetch the k3s kubeconfig from
+`homelab` before starting:
+
+```sh
+mkdir -p ~/.kube
+ssh homelab "sudo cat /etc/rancher/k3s/k3s.yaml" \
+  | sed "s/127.0.0.1/<homelab-address>/" > ~/.kube/config
+chmod 600 ~/.kube/config
+kubectl get nodes
+```
 
 Order matters: CI must pin a real image tag **before** the Argo CD Application is
 applied, or the first sync pulls `sha-0000000` and sits in `ImagePullBackOff`.
