@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api, type Day, type Entry, type EntryKind, type ItineraryLocation } from "./api.ts";
+import { api, type Booking, type Day, type Entry, type EntryKind, type ItineraryLocation } from "./api.ts";
 
 const KIND_LABEL: Record<EntryKind, string> = {
   activity: "Activity",
@@ -23,34 +23,42 @@ const STATUS_MARK: Record<Entry["status"], string> = {
 export function Itinerary({
   tripId,
   participantCount,
+  version,
+  onChange,
 }: {
   tripId: string;
   /** Attendee names are shown only when a day's entry is narrower than this. */
   participantCount: number;
+  /** Bumped by siblings whose edits change what a day shows. */
+  version: number;
+  onChange: () => void;
 }) {
   const [days, setDays] = useState<Day[] | null>(null);
   const [locations, setLocations] = useState<ItineraryLocation[]>([]);
+  const [bookings, setBookings] = useState<Booking[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [newLocation, setNewLocation] = useState("");
   const [newDayDate, setNewDayDate] = useState("");
   const [drafts, setDrafts] = useState<Record<string, { title: string; kind: EntryKind; startsAt: string }>>({});
 
   const load = () => {
-    Promise.all([api.days(tripId), api.locations(tripId)])
-      .then(([d, l]) => {
+    Promise.all([api.days(tripId), api.locations(tripId), api.bookings(tripId)])
+      .then(([d, l, b]) => {
         setDays(d);
         setLocations(l);
+        setBookings(b);
       })
       .catch((e: unknown) => setError(e instanceof Error ? e.message : String(e)));
   };
 
-  useEffect(load, [tripId]);
+  useEffect(load, [tripId, version]);
 
   const act = async (fn: () => Promise<unknown>) => {
     setError(null);
     try {
       await fn();
       load();
+      onChange();
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : String(e));
     }
@@ -142,6 +150,53 @@ export function Itinerary({
                 {day.locations.map((l) => l.name).join(" → ")}
               </div>
             )}
+
+            <div style={{ display: "grid", gap: ".3rem", margin: ".5rem 0", fontSize: ".85em" }}>
+              <label style={{ color: "#555" }}>
+                {/* Lodging is a property of the night, so one per day. */}
+                Sleeping at{" "}
+                <select
+                  value={day.lodging?.id ?? ""}
+                  onChange={(e) => act(() => api.setDayLodging(tripId, day.id, e.target.value === "" ? null : e.target.value))}
+                >
+                  <option value="">— nowhere booked —</option>
+                  {bookings
+                    .filter((b) => b.kind === "lodging")
+                    .map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.title}
+                        {b.status !== "booked" ? ` (${b.status})` : ""}
+                      </option>
+                    ))}
+                </select>
+              </label>
+
+              {bookings.some((b) => b.kind !== "lodging") && (
+                <div style={{ color: "#555" }}>
+                  Using:{" "}
+                  {bookings
+                    .filter((b) => b.kind !== "lodging")
+                    .map((b) => {
+                      const on = day.bookings.some((d) => d.id === b.id);
+                      return (
+                        <label key={b.id} style={{ marginRight: ".6rem", whiteSpace: "nowrap" }}>
+                          <input
+                            type="checkbox"
+                            checked={on}
+                            onChange={() => {
+                              const next = on
+                                ? day.bookings.filter((d) => d.id !== b.id).map((d) => d.id)
+                                : [...day.bookings.map((d) => d.id), b.id];
+                              void act(() => api.setDayBookings(tripId, day.id, next));
+                            }}
+                          />{" "}
+                          {b.title}
+                        </label>
+                      );
+                    })}
+                </div>
+              )}
+            </div>
 
             <ul style={{ listStyle: "none", padding: 0, margin: ".5rem 0 0", display: "grid", gap: ".3rem" }}>
               {day.entries.map((entry) => (

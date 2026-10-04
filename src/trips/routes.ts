@@ -5,7 +5,13 @@ import { z } from "zod";
 import { requireSession, type AuthenticatedEnv } from "../auth/session.ts";
 import { publicScheme } from "../config.ts";
 import { getDb } from "../db/client.ts";
-import { TRIP_STATUSES, tripParticipants, tripInvites, trips } from "../db/schema.ts";
+import {
+  PARTICIPANT_ROLES,
+  TRIP_STATUSES,
+  tripInvites,
+  tripParticipants,
+  trips,
+} from "../db/schema.ts";
 import { membershipFor, tripNotFound } from "./authorize.ts";
 import { issueToken } from "./invite-token.ts";
 
@@ -43,6 +49,14 @@ const orderedDates = <T extends { startDate?: string | null; endDate?: string | 
 
 const createTrip = z.object(tripFields).superRefine(orderedDates);
 const updateTrip = z.object(tripFields).partial().superRefine(orderedDates);
+
+const patchParticipant = z
+  .object({
+    displayName: z.string().trim().min(1).max(120).optional(),
+    role: z.enum(PARTICIPANT_ROLES).optional(),
+    joinedOn: localDate.nullish(),
+  })
+  .refine((v) => Object.keys(v).length > 0, { message: "nothing to update" });
 
 const addParticipant = z.object({
   displayName: z.string().trim().min(1).max(120),
@@ -242,6 +256,62 @@ export const tripRoutes = new Hono<AuthenticatedEnv>()
 
     await getDb().delete(tripParticipants).where(eq(tripParticipants.id, participantId));
     return c.body(null, 204);
+  })
+
+  /**
+   * Renaming a seat is not an owner-only act: the placeholder the creator
+   * gets is their own to fix, and a member should not need an owner to
+   * correct their name. Changing a *role* is owner-only.
+   */
+  .patch("/:tripId/participants/:participantId", zValidator("json", patchParticipant), async (c) => {
+    const tripId = c.req.param("tripId");
+    const participantId = c.req.param("participantId");
+    const userId = c.get("userId");
+
+    const membership = await membershipFor(tripId, userId);
+    if (membership === undefined) return tripNotFound(c);
+
+    const [target] = await getDb()
+      .select()
+      .from(tripParticipants)
+      .where(and(eq(tripParticipants.id, participantId), eq(tripParticipants.tripId, tripId)))
+      .limit(1);
+
+    if (target === undefined) return c.json({ error: "participant not found" }, 404);
+
+    const patch = c.req.valid("json");
+    const isOwner = membership.role === "owner";
+    const isOwnSeat = target.userId === userId;
+
+    if (!isOwner && !isOwnSeat) return c.json({ error: "that is not your seat" }, 403);
+    if (patch.role !== undefined && !isOwner) {
+      return c.json({ error: "only an owner can change a role" }, 403);
+    }
+
+    // Demoting the last owner would leave the trip unadministrable, which is
+    // the same invariant that stops the last owner being removed.
+    if (patch.role === "member" && target.role === "owner") {
+      const [counted] = await getDb()
+        .select({ owners: sql<number>`count(*)::int` })
+        .from(tripParticipants)
+        .where(and(eq(tripParticipants.tripId, tripId), eq(tripParticipants.role, "owner")));
+
+      if ((counted?.owners ?? 0) <= 1) {
+        return c.json({ error: "a trip must keep at least one owner" }, 409);
+      }
+    }
+
+    const [updated] = await getDb()
+      .update(tripParticipants)
+      .set({
+        ...(patch.displayName === undefined ? {} : { displayName: patch.displayName }),
+        ...(patch.role === undefined ? {} : { role: patch.role }),
+        ...(patch.joinedOn === undefined ? {} : { joinedOn: patch.joinedOn }),
+      })
+      .where(eq(tripParticipants.id, participantId))
+      .returning();
+
+    return c.json(updated);
   })
 
   /**

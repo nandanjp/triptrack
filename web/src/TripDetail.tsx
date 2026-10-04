@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, type TripDetail as Trip } from "./api.ts";
+import { Bookings } from "./Bookings.tsx";
 import { Itinerary } from "./Itinerary.tsx";
 import { navigate } from "./routing.ts";
 
@@ -7,6 +8,11 @@ export function TripDetail({ tripId }: { tripId: string }) {
   const [trip, setTrip] = useState<Trip | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [seatName, setSeatName] = useState("");
+  /** Which seat is being renamed inline, and to what. */
+  const [renaming, setRenaming] = useState<{ id: string; value: string } | null>(null);
+  /** Bumped so siblings reload when an edit here changes what they show. */
+  const [version, setVersion] = useState(0);
+  const bump = () => setVersion((v) => v + 1);
   /** Keyed by participant id. The token is shown once and never refetchable. */
   const [links, setLinks] = useState<Record<string, string>>({});
 
@@ -64,7 +70,36 @@ export function TripDetail({ tripId }: { tripId: string }) {
       <ul style={{ listStyle: "none", padding: 0, display: "grid", gap: ".5rem" }}>
         {trip.participants.map((p) => (
           <li key={p.id} style={{ border: "1px solid #eee", borderRadius: 6, padding: ".5rem .75rem" }}>
-            <strong>{p.displayName}</strong>{" "}
+            {renaming?.id === p.id ? (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const next = renaming.value.trim();
+                  setRenaming(null);
+                  if (next !== "" && next !== p.displayName) {
+                    void act(() => api.renameParticipant(trip.id, p.id, next));
+                  }
+                }}
+                style={{ display: "inline-flex", gap: ".3rem" }}
+              >
+                <input
+                  value={renaming.value}
+                  onChange={(e) => setRenaming({ id: p.id, value: e.target.value })}
+                  onBlur={() => setRenaming(null)}
+                  autoFocus
+                />
+                <button type="submit">Save</button>
+              </form>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setRenaming({ id: p.id, value: p.displayName })}
+                title="Rename this seat"
+                style={{ background: "none", border: "none", font: "inherit", fontWeight: 700, color: "#06c", cursor: "pointer", padding: 0 }}
+              >
+                {p.displayName}
+              </button>
+            )}{" "}
             <span style={{ color: "#888", fontSize: ".9em" }}>
               {p.role}
               {/* A seat without an account is the normal case, not an error. */}
@@ -130,9 +165,17 @@ export function TripDetail({ tripId }: { tripId: string }) {
       {error !== null && <p style={{ color: "#b00" }}>{error}</p>}
 
       <hr style={{ margin: "2rem 0 1rem", border: 0, borderTop: "1px solid #eee" }} />
-      <Itinerary tripId={trip.id} participantCount={trip.participants.length} />
+      <Bookings tripId={trip.id} version={version} onChange={bump} />
 
-      <p style={{ color: "#666", marginTop: "2rem" }}>Bookings arrive in step 5.</p>
+      <hr style={{ margin: "2rem 0 1rem", border: 0, borderTop: "1px solid #eee" }} />
+      <Itinerary
+        tripId={trip.id}
+        participantCount={trip.participants.length}
+        version={version}
+        onChange={bump}
+      />
+
+      <p style={{ color: "#666", marginTop: "2rem" }}>Expenses arrive in step 6.</p>
     </section>
   );
 }
