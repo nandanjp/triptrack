@@ -1,4 +1,5 @@
 import { relations, sql } from "drizzle-orm";
+import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import {
   date,
   doublePrecision,
@@ -237,6 +238,18 @@ export const tripDays = pgTable(
     /** A local date, never an instant: a travel day belongs to where you are. */
     date: date("date"),
     notes: text("notes"),
+    /**
+     * Where I sleep at the end of this day. Lodging attaches to a *night*,
+     * not a day: a 3-night stay touches 4 calendar days, so without that
+     * definition a transition day is ambiguous (D6). Chosen explicitly from
+     * the trip's bookings, never derived from date overlap (D5).
+     */
+    lodgingBookingId: uuid("lodging_booking_id").references(
+      // A thunk, because bookings is declared further down. The explicit
+      // return type is what stops the inference going circular.
+      (): AnyPgColumn => bookings.id,
+      { onDelete: "set null" },
+    ),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
@@ -323,3 +336,75 @@ export type Place = typeof places.$inferSelect;
 export type TripLocation = typeof tripLocations.$inferSelect;
 export type TripDay = typeof tripDays.$inferSelect;
 export type DayEntry = typeof dayEntries.$inferSelect;
+
+/**
+ * Accommodation and tickets are one entity (D4): they share every field that
+ * matters — provider, confirmation code, a date range, a location. `event`
+ * covers prebooked timed entry, which falls out for free.
+ */
+export const BOOKING_KINDS = ["lodging", "transit", "event"] as const;
+export type BookingKind = (typeof BOOKING_KINDS)[number];
+
+export const BOOKING_STATUSES = ["booked", "cancelled", "refunded"] as const;
+export type BookingStatus = (typeof BOOKING_STATUSES)[number];
+
+/**
+ * A booking's date range describes **what was paid for, not what was used**.
+ * These legitimately differ: an apartment booked for a whole trip but slept in
+ * for three nights, or a stay cancelled midway. That is exactly why day links
+ * are explicit rather than derived from overlap (D5).
+ *
+ * No cost column: cost is an Expense carrying this booking's id, so trip
+ * totals aggregate from one place rather than two. Arriving in step 6.
+ */
+export const bookings = pgTable(
+  "bookings",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tripId: uuid("trip_id")
+      .notNull()
+      .references(() => trips.id, { onDelete: "cascade" }),
+    kind: text("kind").$type<BookingKind>().notNull(),
+    title: text("title").notNull(),
+    provider: text("provider"),
+    confirmationCode: text("confirmation_code"),
+    /**
+     * An instant, not a local date: transit crosses timezones, and lodging
+     * check-in has a real clock time. The local-date rule applies to trip
+     * days, which is where "what day is it" is decided.
+     */
+    startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
+    endsAt: timestamp("ends_at", { withTimezone: true }),
+    locationId: uuid("location_id").references(() => tripLocations.id, {
+      onDelete: "set null",
+    }),
+    status: text("status").$type<BookingStatus>().notNull().default("booked"),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("bookings_trip_idx").on(table.tripId),
+    index("bookings_trip_kind_idx").on(table.tripId, table.kind),
+  ],
+);
+
+/**
+ * Transit and event bookings used on a day. Many-to-many, because a day can
+ * involve a flight and an airport train. Lodging is excluded: it uses the
+ * single-valued column on the day, since "where did I sleep" is a different
+ * question with different cardinality (D6).
+ */
+export const tripDayBookings = pgTable(
+  "trip_day_bookings",
+  {
+    dayId: uuid("day_id")
+      .notNull()
+      .references(() => tripDays.id, { onDelete: "cascade" }),
+    bookingId: uuid("booking_id")
+      .notNull()
+      .references(() => bookings.id, { onDelete: "cascade" }),
+  },
+  (table) => [primaryKey({ columns: [table.dayId, table.bookingId] })],
+);
+
+export type Booking = typeof bookings.$inferSelect;

@@ -6,11 +6,13 @@ import { z } from "zod";
 import { requireSession, type AuthenticatedEnv } from "../auth/session.ts";
 import { getDb } from "../db/client.ts";
 import {
+  bookings,
   dayEntries,
   dayEntryAttendees,
   ENTRY_KINDS,
   ENTRY_STATUSES,
   places,
+  tripDayBookings,
   tripDayLocations,
   tripDays,
   tripLocations,
@@ -172,7 +174,7 @@ export const itineraryRoutes = new Hono<AuthenticatedEnv>()
     if (days.length === 0) return c.json([]);
     const dayIds = days.map((d) => d.id);
 
-    const [locations, entries, attendees] = await Promise.all([
+    const [locations, entries, attendees, dayBookings, lodging] = await Promise.all([
       getDb()
         .select({
           dayId: tripDayLocations.dayId,
@@ -215,6 +217,33 @@ export const itineraryRoutes = new Hono<AuthenticatedEnv>()
         .innerJoin(tripParticipants, eq(tripParticipants.id, dayEntryAttendees.participantId))
         .innerJoin(dayEntries, eq(dayEntries.id, dayEntryAttendees.entryId))
         .where(inArray(dayEntries.dayId, dayIds)),
+
+      // Transit and event bookings used on each day.
+      getDb()
+        .select({
+          dayId: tripDayBookings.dayId,
+          id: bookings.id,
+          kind: bookings.kind,
+          title: bookings.title,
+          status: bookings.status,
+          startsAt: bookings.startsAt,
+        })
+        .from(tripDayBookings)
+        .innerJoin(bookings, eq(bookings.id, tripDayBookings.bookingId))
+        .where(inArray(tripDayBookings.dayId, dayIds))
+        .orderBy(asc(bookings.startsAt)),
+
+      // Where each night is spent. Single-valued per day (D6).
+      getDb()
+        .select({
+          dayId: tripDays.id,
+          id: bookings.id,
+          title: bookings.title,
+          status: bookings.status,
+        })
+        .from(tripDays)
+        .innerJoin(bookings, eq(bookings.id, tripDays.lodgingBookingId))
+        .where(inArray(tripDays.id, dayIds)),
     ]);
 
     const attendeesByEntry = new Map<string, { participantId: string; displayName: string }[]>();
@@ -228,6 +257,8 @@ export const itineraryRoutes = new Hono<AuthenticatedEnv>()
       days.map((day) => ({
         ...day,
         locations: locations.filter((l) => l.dayId === day.id).map(({ id, name }) => ({ id, name })),
+        lodging: lodging.find((l) => l.dayId === day.id) ?? null,
+        bookings: dayBookings.filter((b) => b.dayId === day.id),
         entries: entries
           .filter((e) => e.dayId === day.id)
           .map((e) => ({ ...e, attendees: attendeesByEntry.get(e.id) ?? [] })),

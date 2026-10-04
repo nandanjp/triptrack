@@ -78,12 +78,41 @@ export type Entry = {
   attendees: { participantId: string; displayName: string }[];
 };
 
+export type BookingKind = "lodging" | "transit" | "event";
+export type BookingStatus = "booked" | "cancelled" | "refunded";
+
+export type Booking = {
+  id: string;
+  kind: BookingKind;
+  title: string;
+  provider: string | null;
+  confirmationCode: string | null;
+  startsAt: string;
+  endsAt: string | null;
+  locationId: string | null;
+  status: BookingStatus;
+  notes: string | null;
+  /** Days actually using it — may be fewer than the nights paid for. */
+  usedDayCount: number;
+};
+
+export type NewBooking = {
+  kind: BookingKind;
+  title: string;
+  provider?: string | null;
+  confirmationCode?: string | null;
+  startsAt: string;
+  endsAt?: string | null;
+};
+
 export type Day = {
   id: string;
   dayNumber: number;
   date: string | null;
   notes: string | null;
   locations: { id: string; name: string }[];
+  lodging: { id: string; title: string; status: BookingStatus } | null;
+  bookings: { id: string; kind: BookingKind; title: string; status: BookingStatus }[];
   entries: Entry[];
 };
 
@@ -160,4 +189,23 @@ export const api = {
     }),
   removeEntry: (tripId: string, entryId: string): Promise<unknown> =>
     call(`/api/trips/${tripId}/entries/${entryId}`, { method: "DELETE" }),
+
+  bookings: (tripId: string): Promise<Booking[]> => call<Booking[]>(`/api/trips/${tripId}/bookings`),
+  addBooking: (tripId: string, booking: NewBooking): Promise<Booking> =>
+    call(`/api/trips/${tripId}/bookings`, { method: "POST", body: JSON.stringify(booking) }),
+  setBookingStatus: (tripId: string, bookingId: string, status: BookingStatus): Promise<Booking> =>
+    call(`/api/trips/${tripId}/bookings/${bookingId}`, { method: "PATCH", body: JSON.stringify({ status }) }),
+  removeBooking: (tripId: string, bookingId: string): Promise<unknown> =>
+    call(`/api/trips/${tripId}/bookings/${bookingId}`, { method: "DELETE" }),
+
+  setDayLodging: (tripId: string, dayId: string, bookingId: string | null): Promise<unknown> =>
+    call(`/api/trips/${tripId}/days/${dayId}/lodging`, { method: "PUT", body: JSON.stringify({ bookingId }) }),
+  setDayBookings: (tripId: string, dayId: string, bookingIds: string[]): Promise<unknown> =>
+    call(`/api/trips/${tripId}/days/${dayId}/bookings`, { method: "PUT", body: JSON.stringify({ bookingIds }) }),
+
+  renameParticipant: (tripId: string, participantId: string, displayName: string): Promise<Participant> =>
+    call(`/api/trips/${tripId}/participants/${participantId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ displayName }),
+    }),
 };

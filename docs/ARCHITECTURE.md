@@ -33,6 +33,7 @@ browser
               ├── /api/auth/*  register · login · logout · me
               ├── /api/trips/* trips · participants · invite issuing
               │                areas · days · date shift · entries · attendance
+              │                bookings · per-night lodging · per-day travel
               ├── /api/invites/*  preview (public) · accept · revoke
               ├── /api/*       404 as JSON, never the SPA
               ├── /*           React SPA, served as static assets
@@ -91,6 +92,16 @@ volume-free. Two consequences follow from the homelab reference: env-injected se
 are read once at process start, so rotating the signing secret requires a
 `kubectl rollout restart` rather than taking effect on its own; and rotating it
 invalidates every live session. See ADR-0005.
+
+**A booking's dates describe what was paid for, not what was used.** Those legitimately
+differ — an apartment booked for a whole trip and slept in for three nights, or a stay
+cancelled midway — so days reference bookings **explicitly** rather than by date overlap
+(D5), and a cancelled booking stays assignable to the nights it genuinely covered.
+Lodging hangs off the day as a single value because it belongs to a *night* (D6); transit
+and events are many-to-many because a day can involve a flight and a train.
+
+Bookings carry **no cost column**. Cost is an Expense holding the booking's id, so trip
+totals aggregate from one place rather than two. That arrives in step 6.
 
 **Day numbers and dates are moved through non-colliding ranges**, not by deferring their
 unique indexes — Postgres checks those per row during an UPDATE, so an overlapping bulk
@@ -158,6 +169,10 @@ consumer:
   (14 days), revocation and single use are implemented, and each link is bound to one
   participant seat — but a link pasted into a group chat is still a link anyone in that
   chat can use until it is claimed or revoked. See ADR-0005.
+- **A booking's `kind` is enforced in the application, not by the schema.** Nothing at
+  the database level stops a transit booking being written into a day's lodging column;
+  the handlers check it, and changing a linked booking's kind is refused. A direct SQL
+  write could still produce a day "sleeping" on a flight.
 - **`day_number` has no positivity CHECK**, because renumbering routes it through
   negative values inside a transaction (ADR-0007). The range is validated in the
   application instead, so a direct SQL write could leave a nonsensical number behind.

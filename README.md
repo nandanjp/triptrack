@@ -21,7 +21,7 @@ watched working.
 - [x] **3 — Trips, participants and invite links.** The root aggregate, owned by an
       account. Participants with a nullable user link, and signed invite links with
       expiry and revocation.
-- [ ] **4 — Itinerary.** Trip locations, days keyed by `day_number` with bulk date
+- [x] **4 — Itinerary.** Trip locations, days keyed by `day_number` with bulk date
       shift, entries with the `planned → done | skipped | cancelled` lifecycle and
       `replaced_by`, and materialised per-entry attendance.
 - [ ] **5 — Bookings.** Lodging, transit and event bookings as one registry.
