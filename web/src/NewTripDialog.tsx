@@ -1,11 +1,22 @@
 import { useState } from "react";
 import { api, type TripSummary } from "./api.ts";
+import { Field } from "@/components/field.tsx";
+import { OptionSelect } from "@/components/option-select.tsx";
 import { Button } from "@/ui/button.tsx";
-import { Dialog } from "@/ui/dialog.tsx";
-import { Field } from "@/ui/field.tsx";
-import { Input, Select } from "@/ui/input.tsx";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/ui/dialog.tsx";
+import { Input } from "@/ui/input.tsx";
 
-const CURRENCIES = ["CAD", "USD", "EUR", "GBP", "KRW", "JPY"];
+const CURRENCIES = ["CAD", "USD", "EUR", "GBP", "KRW", "JPY"].map((code) => ({
+  value: code,
+  label: code,
+}));
 
 export function NewTripDialog({
   open,
@@ -47,57 +58,56 @@ export function NewTripDialog({
   };
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={onOpenChange}
-      title="New trip"
-      description="Dates are optional — a trip you are only dreaming about still gets an itinerary."
-      footer={
-        <>
-          <Button onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button
-            type="submit"
-            form="new-trip"
-            variant="primary"
-            disabled={busy || name.trim() === ""}
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>New trip</DialogTitle>
+          <DialogDescription>
+            Dates are optional — a trip you are only dreaming about still gets an itinerary.
+          </DialogDescription>
+        </DialogHeader>
+
+        <form id="new-trip" onSubmit={submit} className="grid gap-4">
+          <Field label="Name">
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+              autoFocus
+              placeholder="Korea"
+            />
+          </Field>
+
+          {/* min-w-0 on each field, or the date inputs' intrinsic width
+              refuses to shrink and pushes out of the dialog. */}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Starts">
+              <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+            </Field>
+            <Field label="Ends">
+              <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+            </Field>
+          </div>
+
+          <Field
+            label="Home currency"
+            hint="What you think in. Spending abroad is still recorded in its own currency."
           >
+            <OptionSelect value={homeCurrency} onValueChange={setHomeCurrency} options={CURRENCIES} />
+          </Field>
+
+          {error !== null && <p className="text-sm text-destructive">{error}</p>}
+        </form>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button type="submit" form="new-trip" disabled={busy || name.trim() === ""}>
             {busy ? "Working" : "Create trip"}
           </Button>
-        </>
-      }
-    >
-      <form id="new-trip" onSubmit={submit} className="grid gap-4">
-        <Field label="Name">
-          <Input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-            autoFocus
-            placeholder="Korea"
-          />
-        </Field>
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Starts">
-            <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-          </Field>
-          <Field label="Ends">
-            <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
-          </Field>
-        </div>
-
-        <Field label="Home currency" hint="What you think in. Spending abroad is recorded in its own currency.">
-          <Select value={homeCurrency} onChange={(e) => setHomeCurrency(e.target.value)}>
-            {CURRENCIES.map((code) => (
-              <option key={code} value={code}>
-                {code}
-              </option>
-            ))}
-          </Select>
-        </Field>
-
-        {error !== null && <p className="text-sm text-danger">{error}</p>}
-      </form>
+        </DialogFooter>
+      </DialogContent>
     </Dialog>
   );
 }

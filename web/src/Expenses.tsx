@@ -4,11 +4,19 @@ import { formatMinor, parseAmount } from "../../src/expenses/money.ts";
 import { api, type CurrencyTotal, type Expense, type ExpenseSummary, type Participant } from "./api.ts";
 import { Badge } from "@/ui/badge.tsx";
 import { Button } from "@/ui/button.tsx";
-import { Checkbox } from "@/ui/checkbox.tsx";
-import { Dialog } from "@/ui/dialog.tsx";
-import { Field } from "@/ui/field.tsx";
-import { Input, Select } from "@/ui/input.tsx";
-import { Empty, Panel, PanelHeader } from "@/ui/surface.tsx";
+import { LabeledCheckbox } from "@/components/labeled-checkbox.tsx";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/ui/dialog.tsx";
+import { Field } from "@/components/field.tsx";
+import { Input } from "@/ui/input.tsx";
+import { OptionSelect } from "@/components/option-select.tsx";
+import { Empty, Panel, PanelHeader } from "@/components/section.tsx";
+import { ListPlaceholder } from "@/components/placeholders.tsx";
 
 const CURRENCIES = ["CAD", "USD", "EUR", "GBP", "KRW", "JPY"];
 
@@ -16,8 +24,8 @@ const CURRENCIES = ["CAD", "USD", "EUR", "GBP", "KRW", "JPY"];
 function Total({ label, totals, note }: { label: string; totals: CurrencyTotal[]; note: string }) {
   return (
     <div className="min-w-0 flex-1 px-4 py-3">
-      <p className="text-sm text-muted">{label}</p>
-      <p className="numeric mt-0.5 flex flex-wrap items-baseline gap-x-3 text-xl text-ink">
+      <p className="text-sm text-muted-foreground">{label}</p>
+      <p className="numeric mt-0.5 flex flex-wrap items-baseline gap-x-3 text-xl text-foreground">
         {totals.length === 0 ? <span className="text-subtle">Nothing yet</span> : null}
         {totals.map((t) => (
           <span key={t.currency}>{formatMinor(t.totalMinor, t.currency)}</span>
@@ -89,11 +97,12 @@ export function Expenses({
   const nameFor = (id: string) => participants.find((p) => p.id === id)?.displayName ?? "someone";
   const payerOutside = !draft.isPrivate && !draft.consumerIds.includes(draft.paidByParticipantId);
 
-  if (expenses === null || summary === null) return <p className="text-sm text-subtle">Loading</p>;
+  if (expenses === null || summary === null) return <ListPlaceholder rows={4} />;
 
   return (
     <div className="grid gap-7">
-      <Panel className="flex flex-wrap divide-x divide-line">
+      {/* flex-row explicitly: shadcn's Card is flex-col, and twMerge keeps both. */}
+      <Panel className="flex flex-row flex-wrap divide-x divide-border">
         <Total
           label="The trip"
           totals={summary.shared}
@@ -107,7 +116,7 @@ export function Expenses({
           title="Spending"
           description="Who fronted the money and whose it was are different questions, so both get recorded."
           action={
-            <Button variant="primary" size="sm" onClick={() => setOpen(true)}>
+            <Button variant="default" size="sm" onClick={() => setOpen(true)}>
               <Plus />
               Add expense
             </Button>
@@ -120,21 +129,21 @@ export function Expenses({
             the end.
           </Empty>
         ) : (
-          <ul className="divide-y divide-line">
+          <ul className="divide-y divide-border">
             {expenses.map((expense) => (
               <li
                 key={expense.id}
-                className="group flex flex-wrap items-baseline gap-x-3 gap-y-1 px-4 py-2.5 transition-colors hover:bg-sunken"
+                className="group flex flex-wrap items-baseline gap-x-3 gap-y-1 px-4 py-2.5 transition-colors hover:bg-accent"
               >
                 <span className="min-w-0 flex-1">
-                  <span className="text-ink">{expense.description}</span>
+                  <span className="text-foreground">{expense.description}</span>
                   {expense.isPrivate && (
-                    <Badge className="ml-2">
+                    <Badge variant="secondary" className="ml-2">
                       <EyeOff className="size-3" />
                       private
                     </Badge>
                   )}
-                  <span className="mt-0.5 block text-sm text-muted">
+                  <span className="mt-0.5 block text-sm text-muted-foreground">
                     {expense.paidByName} paid
                     {expense.shares.length > 0 &&
                       ` — ${expense.shares
@@ -143,7 +152,7 @@ export function Expenses({
                   </span>
                 </span>
 
-                <span className="numeric shrink-0 font-medium text-ink">
+                <span className="numeric shrink-0 font-medium text-foreground">
                   {formatMinor(expense.amountMinor, expense.currency)}
                 </span>
 
@@ -162,31 +171,13 @@ export function Expenses({
         )}
       </Panel>
 
-      {error !== null && <p className="text-sm text-danger">{error}</p>}
+      {error !== null && <p className="text-sm text-destructive">{error}</p>}
 
-      <Dialog
-        open={open}
-        onOpenChange={setOpen}
-        title="Add expense"
-        footer={
-          <>
-            <Button onClick={() => setOpen(false)}>Cancel</Button>
-            <Button
-              type="submit"
-              form="new-expense"
-              variant="primary"
-              disabled={
-                busy ||
-                draft.description.trim() === "" ||
-                draft.amount.trim() === "" ||
-                (!draft.isPrivate && draft.consumerIds.length === 0)
-              }
-            >
-              {busy ? "Working" : "Add expense"}
-            </Button>
-          </>
-        }
-      >
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add expense</DialogTitle>
+          </DialogHeader>
         <form
           id="new-expense"
           className="grid gap-4"
@@ -234,30 +225,20 @@ export function Expenses({
               />
             </Field>
             <Field label="Currency">
-              <Select
+              <OptionSelect
                 value={draft.currency}
-                onChange={(e) => setDraft({ ...draft, currency: e.target.value })}
-              >
-                {CURRENCIES.map((code) => (
-                  <option key={code} value={code}>
-                    {code}
-                  </option>
-                ))}
-              </Select>
+                onValueChange={(currency) => setDraft({ ...draft, currency })}
+                options={CURRENCIES.map((code) => ({ value: code, label: code }))}
+              />
             </Field>
           </div>
 
           <Field label="Paid by">
-            <Select
+            <OptionSelect
               value={draft.paidByParticipantId}
-              onChange={(e) => setDraft({ ...draft, paidByParticipantId: e.target.value })}
-            >
-              {participants.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.displayName}
-                </option>
-              ))}
-            </Select>
+              onValueChange={(paidByParticipantId) => setDraft({ ...draft, paidByParticipantId })}
+              options={participants.map((p) => ({ value: p.id, label: p.displayName }))}
+            />
           </Field>
 
           {!draft.isPrivate && (
@@ -273,7 +254,7 @@ export function Expenses({
                 {participants.map((p) => {
                   const on = draft.consumerIds.includes(p.id);
                   return (
-                    <Checkbox
+                    <LabeledCheckbox
                       key={p.id}
                       checked={on}
                       onCheckedChange={() =>
@@ -286,21 +267,42 @@ export function Expenses({
                       }
                     >
                       {p.displayName}
-                    </Checkbox>
+                    </LabeledCheckbox>
                   );
                 })}
               </div>
             </Field>
           )}
 
-          <Checkbox
-            checked={draft.isPrivate}
-            onCheckedChange={(value) => setDraft({ ...draft, isPrivate: value })}
-            className="-ml-1.5"
-          >
-            <span className="text-muted">Private — only you see it, and it stays out of the split</span>
-          </Checkbox>
-        </form>
+            <LabeledCheckbox
+              checked={draft.isPrivate}
+              onCheckedChange={(value) => setDraft({ ...draft, isPrivate: value })}
+              className="-ml-1.5"
+            >
+              <span className="text-muted-foreground">
+                Private — only you see it, and it stays out of the split
+              </span>
+            </LabeledCheckbox>
+          </form>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              form="new-expense"
+              disabled={
+                busy ||
+                draft.description.trim() === "" ||
+                draft.amount.trim() === "" ||
+                (!draft.isPrivate && draft.consumerIds.length === 0)
+              }
+            >
+              {busy ? "Working" : "Add expense"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
       </Dialog>
     </div>
   );

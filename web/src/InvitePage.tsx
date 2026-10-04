@@ -24,34 +24,34 @@ export function InvitePage({ token, signedIn }: { token: string; signedIn: boole
   return (
     <main className="grid min-h-dvh place-items-center px-4 py-10">
       <div className="w-full max-w-sm">
-        <p className="font-serif text-lg text-muted">TripTrack</p>
+        <p className="font-serif text-lg text-muted-foreground">TripTrack</p>
 
         {error !== null ? (
           <>
-            <h1 className="mt-2 font-serif text-2xl text-ink">This invite is not available</h1>
-            <p className="mt-2 text-muted">{error}</p>
+            <h1 className="mt-2 font-serif text-2xl text-foreground">This invite is not available</h1>
+            <p className="mt-2 text-muted-foreground">{error}</p>
           </>
         ) : preview === null ? (
-          <p className="mt-4 text-sm text-subtle">Loading</p>
+          <div className="mt-4" />
         ) : preview.state !== "valid" ? (
           <>
-            <h1 className="mt-2 font-serif text-2xl text-ink">This invite is not available</h1>
-            <p className="mt-2 text-muted">{UNAVAILABLE[preview.state]}</p>
-            <Button className="mt-6" onClick={() => navigate("/")}>
+            <h1 className="mt-2 font-serif text-2xl text-foreground">This invite is not available</h1>
+            <p className="mt-2 text-muted-foreground">{UNAVAILABLE[preview.state]}</p>
+            <Button variant="outline" className="mt-6" onClick={() => navigate("/")}>
               Go to TripTrack
             </Button>
           </>
         ) : (
           <>
-            <h1 className="mt-2 font-serif text-3xl text-ink">Join {preview.tripName}</h1>
-            <p className="mt-2 text-muted">
-              You have been invited as <span className="text-ink">{preview.seatName}</span>. You
+            <h1 className="mt-2 font-serif text-3xl text-foreground">Join {preview.tripName}</h1>
+            <p className="mt-2 text-muted-foreground">
+              You have been invited as <span className="text-foreground">{preview.seatName}</span>. You
               will be able to see the itinerary and add to the shared costs.
             </p>
 
             {signedIn || preview.signedIn ? (
               <Button
-                variant="primary"
+                variant="default"
                 size="lg"
                 className="mt-6"
                 disabled={busy}
@@ -70,11 +70,11 @@ export function InvitePage({ token, signedIn }: { token: string; signedIn: boole
               </Button>
             ) : (
               <>
-                <Button variant="primary" size="lg" className="mt-6" onClick={() => navigate("/")}>
+                <Button variant="default" size="lg" className="mt-6" onClick={() => navigate("/")}>
                   Sign in to join
                 </Button>
                 {/* The link survives sign-in: this path is still here afterwards. */}
-                <p className="mt-3 text-sm text-muted">
+                <p className="mt-3 text-sm text-muted-foreground">
                   Come back to this link once you are signed in and the invite will still be here.
                 </p>
               </>

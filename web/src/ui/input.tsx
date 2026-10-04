@@ -1,29 +1,20 @@
-import type { ComponentProps } from "react";
-import { cn } from "@/lib/utils.ts";
+import * as React from "react"
+import { cn } from "cn"
 
-const base =
-  "w-full rounded-md border border-line bg-raised px-2.5 py-1.5 text-base text-ink transition-colors placeholder:text-subtle hover:border-line-strong focus:border-accent focus:outline-none disabled:opacity-50";
+function Input({ className, type, ...props }: React.ComponentProps<"input">) {
+  return (
+    <input
+      type={type}
+      data-slot="input"
+      className={cn(
+        "h-9 w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-xs transition-[color,box-shadow] outline-none selection:bg-primary selection:text-primary-foreground file:inline-flex file:h-7 file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm dark:bg-input/30",
+        "focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50",
+        "aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40",
+        className
+      )}
+      {...props}
+    />
+  )
+}
 
-export const Input = ({ className, ...props }: ComponentProps<"input">) => (
-  <input className={cn(base, className)} {...props} />
-);
-
-export const Textarea = ({ className, ...props }: ComponentProps<"textarea">) => (
-  <textarea className={cn(base, "min-h-20 resize-y", className)} {...props} />
-);
-
-/**
- * A styled native select rather than a Radix one: on a phone this opens the
- * platform picker, which is better than anything rebuilt in a div.
- */
-export const Select = ({ className, ...props }: ComponentProps<"select">) => (
-  <select
-    className={cn(
-      base,
-      "cursor-pointer appearance-none bg-[length:16px] bg-[right_0.4rem_center] bg-no-repeat pr-7",
-      "bg-[url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%236b6f7b%22 stroke-width=%222%22><path d=%22M6 9l6 6 6-6%22/></svg>')]",
-      className,
-    )}
-    {...props}
-  />
-);
+export { Input }

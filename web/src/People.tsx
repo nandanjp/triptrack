@@ -4,7 +4,7 @@ import { api, type Participant } from "./api.ts";
 import { Badge } from "@/ui/badge.tsx";
 import { Button } from "@/ui/button.tsx";
 import { Input } from "@/ui/input.tsx";
-import { Empty, Panel, PanelBody, PanelHeader } from "@/ui/surface.tsx";
+import { Empty, Panel, PanelBody, PanelHeader } from "@/components/section.tsx";
 
 export function People({
   tripId,
@@ -55,7 +55,7 @@ export function People({
           description="Someone can be on a trip without an account. Add them by name now and send a link later, or never."
         />
 
-        <ul className="divide-y divide-line">
+        <ul className="divide-y divide-border">
           {participants.map((person) => (
             <li key={person.id} className="group px-4 py-3">
               <div className="flex flex-wrap items-center gap-3">
@@ -77,25 +77,25 @@ export function People({
                       autoFocus
                       className="h-8 max-w-56"
                     />
-                    <Button type="submit" size="sm" variant="primary">
+                    <Button type="submit" size="sm" variant="default">
                       Save
                     </Button>
-                    <Button size="sm" onClick={() => setRenaming(null)}>
+                    <Button variant="outline" size="sm" onClick={() => setRenaming(null)}>
                       Cancel
                     </Button>
                   </form>
                 ) : (
                   <>
                     <span className="min-w-0 flex-1">
-                      <span className="font-medium text-ink">{person.displayName}</span>
+                      <span className="font-medium text-foreground">{person.displayName}</span>
                       {person.id === myParticipantId && (
-                        <Badge tone="accent" className="ml-2">
+                        <Badge variant="default" className="ml-2">
                           you
                         </Badge>
                       )}
-                      {person.role === "owner" && <Badge className="ml-2">owner</Badge>}
+                      {person.role === "owner" && <Badge variant="secondary" className="ml-2">owner</Badge>}
                       {!person.hasAccount && (
-                        <span className="ml-2 text-sm text-muted">no account yet</span>
+                        <span className="ml-2 text-sm text-muted-foreground">no account yet</span>
                       )}
                     </span>
 
@@ -141,7 +141,7 @@ export function People({
               </div>
 
               {links[person.id] !== undefined && (
-                <div className="mt-2.5 rounded-md border border-line bg-sunken p-2.5">
+                <div className="mt-2.5 rounded-md border border-border bg-accent p-2.5">
                   <div className="flex items-center gap-2">
                     <Input
                       readOnly
@@ -149,12 +149,12 @@ export function People({
                       onFocus={(e) => e.currentTarget.select()}
                       className="h-8 flex-1 font-mono text-xs"
                     />
-                    <Button size="sm" onClick={() => copy(person.id, links[person.id] ?? "")}>
+                    <Button variant="outline" size="sm" onClick={() => copy(person.id, links[person.id] ?? "")}>
                       {copied === person.id ? <Check /> : <Copy />}
                       {copied === person.id ? "Copied" : "Copy"}
                     </Button>
                   </div>
-                  <p className="mt-2 text-sm text-muted">
+                  <p className="mt-2 text-sm text-muted-foreground">
                     Copy this now — it is shown once. Anyone holding it can join as{" "}
                     {person.displayName}, and it expires in 14 days.
                   </p>
@@ -165,7 +165,7 @@ export function People({
         </ul>
 
         {isOwner ? (
-          <PanelBody className="border-t border-line">
+          <PanelBody className="border-t border-border">
             <form
               className="flex flex-wrap items-center gap-2"
               onSubmit={(e) => {
@@ -182,7 +182,7 @@ export function People({
                 placeholder="Add someone by name"
                 className="h-8 max-w-56 flex-1"
               />
-              <Button type="submit" size="sm" disabled={newName.trim() === ""}>
+              <Button variant="outline" type="submit" size="sm" disabled={newName.trim() === ""}>
                 <UserPlus />
                 Add
               </Button>
@@ -193,7 +193,7 @@ export function People({
         )}
       </Panel>
 
-      {error !== null && <p className="text-sm text-danger">{error}</p>}
+      {error !== null && <p className="text-sm text-destructive">{error}</p>}
     </div>
   );
 }

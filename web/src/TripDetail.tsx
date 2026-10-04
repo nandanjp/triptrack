@@ -9,8 +9,14 @@ import { Settlement } from "./Settlement.tsx";
 import { navigate } from "./routing.ts";
 import { Badge } from "@/ui/badge.tsx";
 import { Button } from "@/ui/button.tsx";
-import { Menu, MenuItem } from "@/ui/menu.tsx";
-import { Tab, TabList, TabPanel, Tabs } from "@/ui/tabs.tsx";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/ui/dropdown-menu.tsx";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/tabs.tsx";
+import { PagePlaceholder } from "@/components/placeholders.tsx";
 
 const longDate = (iso: string): string =>
   new Date(`${iso}T00:00:00`).toLocaleDateString("en-GB", {
@@ -38,9 +44,9 @@ export function TripDetail({ tripId, onTripChanged }: { tripId: string; onTripCh
   if (error !== null && trip === null) {
     return (
       <div className="max-w-prose">
-        <h1 className="font-serif text-2xl text-ink">This trip is not available</h1>
-        <p className="mt-2 text-muted">{error}</p>
-        <Button className="mt-5" onClick={() => navigate("/")}>
+        <h1 className="font-serif text-2xl text-foreground">This trip is not available</h1>
+        <p className="mt-2 text-muted-foreground">{error}</p>
+        <Button variant="outline" className="mt-5" onClick={() => navigate("/")}>
           <ChevronLeft />
           All trips
         </Button>
@@ -48,7 +54,7 @@ export function TripDetail({ tripId, onTripChanged }: { tripId: string; onTripCh
     );
   }
 
-  if (trip === null) return <p className="text-sm text-subtle">Loading</p>;
+  if (trip === null) return <PagePlaceholder />;
 
   const isOwner = trip.role === "owner";
   const dates =
@@ -62,59 +68,72 @@ export function TripDetail({ tripId, onTripChanged }: { tripId: string; onTripCh
     <div>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="font-serif text-3xl break-words text-ink">{trip.name}</h1>
-          <p className="numeric mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-muted">
+          <h1 className="font-serif text-3xl break-words text-foreground">{trip.name}</h1>
+          <p className="numeric mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground">
             <span>{dates}</span>
             <span>{trip.homeCurrency}</span>
-            {trip.status !== "planning" && <Badge>{trip.status}</Badge>}
+            {trip.status !== "planning" && <Badge variant="secondary">{trip.status}</Badge>}
           </p>
         </div>
 
         {isOwner && (
-          <Menu
-            trigger={
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" aria-label="Trip options">
                 <MoreHorizontal />
               </Button>
-            }
-          >
-            <MenuItem
-              tone="danger"
-              onSelect={() => {
-                void api.deleteTrip(trip.id).then(() => {
-                  onTripChanged();
-                  navigate("/");
-                });
-              }}
-            >
-              Delete trip
-            </MenuItem>
-          </Menu>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                variant="destructive"
+                onSelect={() => {
+                  void api.deleteTrip(trip.id).then(() => {
+                    onTripChanged();
+                    navigate("/");
+                  });
+                }}
+              >
+                Delete trip
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         )}
       </div>
 
       <Tabs defaultValue="days" className="mt-7">
-        <TabList>
-          <Tab value="days">Days</Tab>
-          <Tab value="bookings">Bookings</Tab>
-          <Tab value="money">Money</Tab>
-          <Tab value="people">People</Tab>
-        </TabList>
+        <TabsList variant="line" className="w-full justify-start border-b">
+          <TabsTrigger
+            value="days"
+            className="flex-none border-b-2 border-transparent data-[state=active]:border-b-primary"
+          >Days</TabsTrigger>
+          <TabsTrigger
+            value="bookings"
+            className="flex-none border-b-2 border-transparent data-[state=active]:border-b-primary"
+          >Bookings</TabsTrigger>
+          <TabsTrigger
+            value="money"
+            className="flex-none border-b-2 border-transparent data-[state=active]:border-b-primary"
+          >Money</TabsTrigger>
+          <TabsTrigger
+            value="people"
+            className="flex-none border-b-2 border-transparent data-[state=active]:border-b-primary"
+          >People</TabsTrigger>
+        </TabsList>
 
-        <TabPanel value="days">
+        <TabsContent className="pt-6" value="days">
           <Itinerary
             tripId={trip.id}
             participants={trip.participants}
             version={version}
             onChange={bump}
           />
-        </TabPanel>
+        </TabsContent>
 
-        <TabPanel value="bookings">
+        <TabsContent className="pt-6" value="bookings">
           <Bookings tripId={trip.id} version={version} onChange={bump} />
-        </TabPanel>
+        </TabsContent>
 
-        <TabPanel value="money">
+        <TabsContent className="pt-6" value="money">
           <div className="grid gap-8">
             <Expenses
               tripId={trip.id}
@@ -125,9 +144,9 @@ export function TripDetail({ tripId, onTripChanged }: { tripId: string; onTripCh
             />
             <Settlement tripId={trip.id} isOwner={isOwner} version={version} onChange={bump} />
           </div>
-        </TabPanel>
+        </TabsContent>
 
-        <TabPanel value="people">
+        <TabsContent className="pt-6" value="people">
           <People
             tripId={trip.id}
             participants={trip.participants}
@@ -135,7 +154,7 @@ export function TripDetail({ tripId, onTripChanged }: { tripId: string; onTripCh
             isOwner={isOwner}
             onChange={bump}
           />
-        </TabPanel>
+        </TabsContent>
       </Tabs>
     </div>
   );

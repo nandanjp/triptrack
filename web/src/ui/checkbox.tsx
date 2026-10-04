@@ -1,41 +1,29 @@
-import * as RadixCheckbox from "@radix-ui/react-checkbox";
-import { Check } from "lucide-react";
-import type { ReactNode } from "react";
-import { cn } from "@/lib/utils.ts";
+import * as React from "react"
+import { cn } from "cn"
+import { CheckIcon } from "lucide-react"
+import { Checkbox as CheckboxPrimitive } from "radix-ui"
 
-/**
- * Radix rather than a bare input: these appear in groups (who was there, who
- * a cost is split between) where label association and keyboard behaviour
- * matter more than the markup saved.
- */
-export function Checkbox({
-  checked,
-  onCheckedChange,
-  children,
+function Checkbox({
   className,
-}: {
-  checked: boolean;
-  onCheckedChange: (checked: boolean) => void;
-  children?: ReactNode;
-  className?: string;
-}) {
+  ...props
+}: React.ComponentProps<typeof CheckboxPrimitive.Root>) {
   return (
-    <label
+    <CheckboxPrimitive.Root
+      data-slot="checkbox"
       className={cn(
-        "inline-flex cursor-pointer items-center gap-2 rounded-md px-1.5 py-1 text-sm text-ink transition-colors hover:bg-sunken",
-        className,
+        "peer size-4 shrink-0 rounded-[4px] border border-input shadow-xs transition-shadow outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground dark:bg-input/30 dark:aria-invalid:ring-destructive/40 dark:data-[state=checked]:bg-primary",
+        className
       )}
+      {...props}
     >
-      <RadixCheckbox.Root
-        checked={checked}
-        onCheckedChange={(value) => onCheckedChange(value === true)}
-        className="grid size-4 shrink-0 place-items-center rounded-sm border border-line-strong bg-raised transition-colors data-[state=checked]:border-accent data-[state=checked]:bg-accent"
+      <CheckboxPrimitive.Indicator
+        data-slot="checkbox-indicator"
+        className="grid place-content-center text-current transition-none"
       >
-        <RadixCheckbox.Indicator>
-          <Check className="size-3 text-accent-fg" strokeWidth={3} />
-        </RadixCheckbox.Indicator>
-      </RadixCheckbox.Root>
-      {children}
-    </label>
-  );
+        <CheckIcon className="size-3.5" />
+      </CheckboxPrimitive.Indicator>
+    </CheckboxPrimitive.Root>
+  )
 }
+
+export { Checkbox }

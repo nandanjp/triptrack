@@ -19,12 +19,14 @@ import {
   type ItineraryLocation,
   type Participant,
 } from "./api.ts";
-import { cn } from "@/lib/utils.ts";
+import { cn } from "cn";
 import { Badge } from "@/ui/badge.tsx";
 import { Button } from "@/ui/button.tsx";
-import { Checkbox } from "@/ui/checkbox.tsx";
-import { Input, Select } from "@/ui/input.tsx";
-import { Empty, Panel, PanelBody, PanelHeader } from "@/ui/surface.tsx";
+import { LabeledCheckbox } from "@/components/labeled-checkbox.tsx";
+import { OptionSelect } from "@/components/option-select.tsx";
+import { Input } from "@/ui/input.tsx";
+import { Empty, Panel, PanelBody, PanelHeader } from "@/components/section.tsx";
+import { ListPlaceholder } from "@/components/placeholders.tsx";
 
 const KIND_LABEL: Record<EntryKind, string> = { activity: "Activity", meal: "Meal", place: "Place" };
 
@@ -44,6 +46,9 @@ const weekday = (iso: string): string =>
 
 type Draft = { title: string; kind: EntryKind; startsAt: string };
 const emptyDraft: Draft = { title: "", kind: "activity", startsAt: "" };
+
+/** Radix forbids an empty-string option value, so absence needs a name. */
+const NOWHERE = "__nowhere__";
 
 export function Itinerary({
   tripId,
@@ -91,7 +96,7 @@ export function Itinerary({
   const lodgings = bookings.filter((b) => b.kind === "lodging");
   const travel = bookings.filter((b) => b.kind !== "lodging");
 
-  if (days === null) return <p className="text-sm text-subtle">Loading</p>;
+  if (days === null) return <ListPlaceholder rows={4} />;
 
   return (
     <div className="grid gap-7">
@@ -104,10 +109,10 @@ export function Itinerary({
           {locations.map((area) => (
             <span
               key={area.id}
-              className="group inline-flex items-center gap-2 rounded-md border border-line bg-sunken py-1 pr-1 pl-2.5 text-sm"
+              className="group inline-flex items-center gap-2 rounded-md border border-border bg-accent py-1 pr-1 pl-2.5 text-sm"
             >
-              <span className="text-ink">{area.name}</span>
-              <span className="numeric text-xs text-muted">
+              <span className="text-foreground">{area.name}</span>
+              <span className="numeric text-xs text-muted-foreground">
                 {area.dayCount} {area.dayCount === 1 ? "day" : "days"}
               </span>
               {area.dayCount === 0 && (
@@ -149,11 +154,11 @@ export function Itinerary({
 
       <section>
         <header className="mb-4 flex flex-wrap items-baseline justify-between gap-3">
-          <h2 className="text-lg font-medium text-ink">Day by day</h2>
+          <h2 className="text-lg font-medium text-foreground">Day by day</h2>
           {days.length > 0 && (
             <div className="flex items-center gap-2 text-sm">
-              <span className="text-muted">Trip moved?</span>
-              <div className="flex overflow-hidden rounded-md border border-line">
+              <span className="text-muted-foreground">Trip moved?</span>
+              <div className="flex overflow-hidden rounded-md border border-border">
                 {[
                   { label: "−1w", by: -7 },
                   { label: "−1d", by: -1 },
@@ -164,7 +169,7 @@ export function Itinerary({
                     key={shift.label}
                     type="button"
                     onClick={() => act(() => api.shiftDays(tripId, shift.by))}
-                    className="numeric border-r border-line px-2 py-1 text-xs text-muted transition-colors last:border-r-0 hover:bg-sunken hover:text-ink"
+                    className="numeric border-r border-border px-2 py-1 text-xs text-muted-foreground transition-colors last:border-r-0 hover:bg-accent hover:text-foreground"
                   >
                     {shift.label}
                   </button>
@@ -178,7 +183,7 @@ export function Itinerary({
           <Panel>
             <Empty
               action={
-                <Button variant="primary" onClick={() => act(() => api.addDay(tripId, { date: null }))}>
+                <Button variant="default" onClick={() => act(() => api.addDay(tripId, { date: null }))}>
                   <CalendarPlus />
                   Add the first day
                 </Button>
@@ -198,21 +203,21 @@ export function Itinerary({
                 <li key={day.id} className="group/day relative grid grid-cols-[2rem_1fr] gap-x-4 pb-7">
                   {/* The spine: a continuous rule that stops at the last day. */}
                   {!last && (
-                    <span className="absolute top-8 bottom-0 left-4 -ml-px w-px bg-line" aria-hidden />
+                    <span className="absolute top-8 bottom-0 left-4 -ml-px w-px bg-border" aria-hidden />
                   )}
 
-                  <span className="numeric z-10 grid size-8 place-items-center self-start rounded-full border border-line bg-raised text-sm text-muted">
+                  <span className="numeric z-10 grid size-8 place-items-center self-start rounded-full border border-border bg-card text-sm text-muted-foreground">
                     {day.dayNumber}
                   </span>
 
                   <div className="min-w-0 pt-1">
                     <div className="flex flex-wrap items-baseline justify-between gap-x-3">
-                      <h3 className="numeric font-medium text-ink">
+                      <h3 className="numeric font-medium text-foreground">
                         {day.date === null ? `Day ${day.dayNumber}` : weekday(day.date)}
                       </h3>
                       <div className="flex items-center gap-1">
                         {day.locations.length > 0 && (
-                          <span className="text-sm text-muted">
+                          <span className="text-sm text-muted-foreground">
                             {day.locations.map((l) => l.name).join(" → ")}
                           </span>
                         )}
@@ -239,24 +244,25 @@ export function Itinerary({
                     </div>
 
                     <div className="mt-2 grid gap-1.5 text-sm">
-                      <label className="flex items-center gap-2 text-muted">
+                      <div className="flex items-center gap-2 text-muted-foreground">
                         <BedDouble className="size-3.5 shrink-0 text-subtle" />
-                        <Select
-                          value={day.lodging?.id ?? ""}
-                          onChange={(e) =>
-                            act(() => api.setDayLodging(tripId, day.id, e.target.value === "" ? null : e.target.value))
+                        <OptionSelect
+                          aria-label="Where you sleep tonight"
+                          size="sm"
+                          className="w-auto min-w-44"
+                          value={day.lodging?.id ?? NOWHERE}
+                          onValueChange={(value) =>
+                            act(() => api.setDayLodging(tripId, day.id, value === NOWHERE ? null : value))
                           }
-                          className="h-7 w-auto min-w-40 py-0.5 text-sm"
-                        >
-                          <option value="">Nowhere booked</option>
-                          {lodgings.map((b) => (
-                            <option key={b.id} value={b.id}>
-                              {b.title}
-                              {b.status === "booked" ? "" : ` (${b.status})`}
-                            </option>
-                          ))}
-                        </Select>
-                      </label>
+                          options={[
+                            { value: NOWHERE, label: "Nowhere booked" },
+                            ...lodgings.map((b) => ({
+                              value: b.id,
+                              label: b.status === "booked" ? b.title : `${b.title} (${b.status})`,
+                            })),
+                          ]}
+                        />
+                      </div>
 
                       {travel.length > 0 && (
                         <div className="flex flex-wrap items-center gap-x-1 gap-y-0.5">
@@ -264,7 +270,7 @@ export function Itinerary({
                           {travel.map((b) => {
                             const on = day.bookings.some((d) => d.id === b.id);
                             return (
-                              <Checkbox
+                              <LabeledCheckbox
                                 key={b.id}
                                 checked={on}
                                 onCheckedChange={() =>
@@ -279,8 +285,8 @@ export function Itinerary({
                                   )
                                 }
                               >
-                                <span className={on ? "text-ink" : "text-muted"}>{b.title}</span>
-                              </Checkbox>
+                                <span className={on ? "text-foreground" : "text-muted-foreground"}>{b.title}</span>
+                              </LabeledCheckbox>
                             );
                           })}
                         </div>
@@ -314,20 +320,19 @@ export function Itinerary({
                         });
                       }}
                     >
-                      <Select
-                        value={draft.kind}
-                        onChange={(e) =>
-                          setDrafts((prev) => ({ ...prev, [day.id]: { ...draft, kind: e.target.value as EntryKind } }))
-                        }
-                        className="h-7 w-auto py-0.5 text-sm"
+                      <OptionSelect
                         aria-label="Kind"
-                      >
-                        {(Object.keys(KIND_LABEL) as EntryKind[]).map((k) => (
-                          <option key={k} value={k}>
-                            {KIND_LABEL[k]}
-                          </option>
-                        ))}
-                      </Select>
+                        size="sm"
+                        className="w-auto"
+                        value={draft.kind}
+                        onValueChange={(value) =>
+                          setDrafts((prev) => ({ ...prev, [day.id]: { ...draft, kind: value as EntryKind } }))
+                        }
+                        options={(Object.keys(KIND_LABEL) as EntryKind[]).map((k) => ({
+                          value: k,
+                          label: KIND_LABEL[k],
+                        }))}
+                      />
                       <Input
                         type="time"
                         value={draft.startsAt}
@@ -374,7 +379,7 @@ export function Itinerary({
               className="numeric h-8 w-40 text-sm"
               aria-label="Date for the new day"
             />
-            <Button type="submit" size="sm">
+            <Button variant="outline" type="submit" size="sm">
               <Plus />
               Add day
             </Button>
@@ -382,7 +387,7 @@ export function Itinerary({
         )}
       </section>
 
-      {error !== null && <p className="text-sm text-danger">{error}</p>}
+      {error !== null && <p className="text-sm text-destructive">{error}</p>}
     </div>
   );
 }
@@ -406,31 +411,31 @@ function EntryRow({
   const partial = entry.attendees.length > 0 && entry.attendees.length < participantCount;
 
   return (
-    <li className="group/entry flex items-baseline gap-2 rounded-md px-1.5 py-1 transition-colors hover:bg-sunken">
+    <li className="group/entry flex items-baseline gap-2 rounded-md px-1.5 py-1 transition-colors hover:bg-accent">
       <Icon
         className={cn(
           "mt-0.5 size-3.5 shrink-0",
-          entry.status === "done" ? "text-accent" : "text-subtle",
+          entry.status === "done" ? "text-primary" : "text-subtle",
         )}
         strokeWidth={entry.status === "done" ? 3 : 2}
       />
 
-      <span className="numeric w-11 shrink-0 text-sm text-muted">
+      <span className="numeric w-11 shrink-0 text-sm text-muted-foreground">
         {entry.startsAt?.slice(0, 5) ?? ""}
       </span>
 
       <span className="min-w-0 flex-1">
-        <span className={cn("text-ink", struck && "text-subtle line-through")}>{entry.title}</span>
+        <span className={cn("text-foreground", struck && "text-subtle line-through")}>{entry.title}</span>
         {entry.placeName !== null && (
-          <span className="ml-2 text-sm text-muted">{entry.placeName}</span>
+          <span className="ml-2 text-sm text-muted-foreground">{entry.placeName}</span>
         )}
         {partial && (
-          <span className="ml-2 text-sm text-muted">
+          <span className="ml-2 text-sm text-muted-foreground">
             {entry.attendees.map((a) => a.displayName).join(", ")}
           </span>
         )}
         {entry.replacedByEntryId !== null && (
-          <Badge className="ml-2" tone="caution">
+          <Badge variant="outline" className="ml-2 text-caution">
             replaced
           </Badge>
         )}

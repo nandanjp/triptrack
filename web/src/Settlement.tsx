@@ -3,7 +3,8 @@ import { ArrowRight, Check, Lock, Undo2 } from "lucide-react";
 import { formatMinor } from "../../src/expenses/money.ts";
 import { api, type SettlementView } from "./api.ts";
 import { Button } from "@/ui/button.tsx";
-import { Empty, Panel, PanelBody, PanelHeader } from "@/ui/surface.tsx";
+import { Empty, Panel, PanelBody, PanelHeader } from "@/components/section.tsx";
+import { ListPlaceholder } from "@/components/placeholders.tsx";
 
 export function Settlement({
   tripId,
@@ -39,7 +40,7 @@ export function Settlement({
     }
   };
 
-  if (view === null) return <p className="text-sm text-subtle">Loading</p>;
+  if (view === null) return <ListPlaceholder />;
 
   const nameFor = (id: string) => view.participants.find((p) => p.id === id)?.displayName ?? "someone";
   const settled = view.settledAt !== null;
@@ -57,13 +58,13 @@ export function Settlement({
           action={
             isOwner &&
             (settled ? (
-              <Button size="sm" onClick={() => act(() => api.reopenTrip(tripId))}>
+              <Button variant="outline" size="sm" onClick={() => act(() => api.reopenTrip(tripId))}>
                 <Undo2 />
                 Reopen
               </Button>
             ) : (
               <Button
-                variant="primary"
+                variant="default"
                 size="sm"
                 disabled={view.outstanding}
                 title={view.outstanding ? "Record the remaining payments first" : undefined}
@@ -77,7 +78,7 @@ export function Settlement({
         />
 
         {settled && (
-          <PanelBody className="flex items-center gap-2 border-b border-line text-sm text-positive">
+          <PanelBody className="flex items-center gap-2 border-b border-border text-sm text-positive">
             <Check className="size-4" />
             Settled on{" "}
             {new Date(view.settledAt ?? "").toLocaleDateString("en-GB", {
@@ -94,17 +95,17 @@ export function Settlement({
             balances and the shortest set of payments that clears them show up here.
           </Empty>
         ) : (
-          <div className="divide-y divide-line">
+          <div className="divide-y divide-border">
             {view.perCurrency.map((group) => (
               <section key={group.currency} className="px-4 py-3">
                 {view.perCurrency.length > 1 && (
-                  <h3 className="numeric mb-2 text-sm font-medium text-muted">{group.currency}</h3>
+                  <h3 className="numeric mb-2 text-sm font-medium text-muted-foreground">{group.currency}</h3>
                 )}
 
                 {group.inconsistency !== null && (
                   // Impossible by construction, so silence would be worse than
                   // an alarming message.
-                  <p className="mb-2 rounded-md bg-danger-soft px-2.5 py-1.5 text-sm text-danger">
+                  <p className="mb-2 rounded-md bg-destructive/10 px-2.5 py-1.5 text-sm text-destructive">
                     These balances do not add up ({group.inconsistency}). Something is wrong with
                     the recorded spending.
                   </p>
@@ -120,7 +121,7 @@ export function Settlement({
                     <ul className="grid gap-1">
                       {group.balances.map((balance) => (
                         <li key={balance.participantId} className="flex items-baseline gap-2 text-sm">
-                          <span className="min-w-0 flex-1 truncate text-ink">
+                          <span className="min-w-0 flex-1 truncate text-foreground">
                             {nameFor(balance.participantId)}
                           </span>
                           <span
@@ -139,8 +140,8 @@ export function Settlement({
                     </ul>
 
                     {group.plan.length > 0 && (
-                      <div className="mt-3 rounded-md border border-line bg-sunken p-2.5">
-                        <p className="mb-1.5 text-sm text-muted">
+                      <div className="mt-3 rounded-md border border-border bg-accent p-2.5">
+                        <p className="mb-1.5 text-sm text-muted-foreground">
                           {group.plan.length === 1
                             ? "One payment clears this:"
                             : `${group.plan.length} payments clear this:`}
@@ -152,19 +153,19 @@ export function Settlement({
                               className="flex flex-wrap items-center gap-2 text-sm"
                             >
                               <span className="flex min-w-0 flex-1 items-center gap-1.5">
-                                <span className="truncate text-ink">
+                                <span className="truncate text-foreground">
                                   {nameFor(transfer.fromParticipantId)}
                                 </span>
                                 <ArrowRight className="size-3.5 shrink-0 text-subtle" />
-                                <span className="truncate text-ink">
+                                <span className="truncate text-foreground">
                                   {nameFor(transfer.toParticipantId)}
                                 </span>
-                                <span className="numeric shrink-0 font-medium text-ink">
+                                <span className="numeric shrink-0 font-medium text-foreground">
                                   {formatMinor(transfer.amountMinor, group.currency)}
                                 </span>
                               </span>
                               {!settled && (
-                                <Button
+                                <Button variant="outline"
                                   size="sm"
                                   onClick={() =>
                                     act(() =>
@@ -189,23 +190,23 @@ export function Settlement({
       </Panel>
 
       {view.recorded.length > 0 && (
-        <details className="rounded-lg border border-line bg-raised">
-          <summary className="cursor-pointer px-4 py-2.5 text-sm text-muted select-none">
+        <details className="rounded-lg border border-border bg-card">
+          <summary className="cursor-pointer px-4 py-2.5 text-sm text-muted-foreground select-none">
             {view.recorded.length} payment{view.recorded.length === 1 ? "" : "s"} recorded
           </summary>
-          <ul className="divide-y divide-line border-t border-line">
+          <ul className="divide-y divide-border border-t border-border">
             {view.recorded.map((payment) => (
               <li
                 key={payment.id}
                 className="group flex flex-wrap items-center gap-x-3 px-4 py-2 text-sm"
               >
-                <span className="numeric text-muted">{payment.settledOn}</span>
+                <span className="numeric text-muted-foreground">{payment.settledOn}</span>
                 <span className="flex min-w-0 flex-1 items-center gap-1.5">
-                  <span className="truncate text-ink">{nameFor(payment.fromParticipantId)}</span>
+                  <span className="truncate text-foreground">{nameFor(payment.fromParticipantId)}</span>
                   <ArrowRight className="size-3.5 shrink-0 text-subtle" />
-                  <span className="truncate text-ink">{nameFor(payment.toParticipantId)}</span>
+                  <span className="truncate text-foreground">{nameFor(payment.toParticipantId)}</span>
                 </span>
-                <span className="numeric text-ink">
+                <span className="numeric text-foreground">
                   {formatMinor(payment.amountMinor, payment.currency)}
                 </span>
                 {!settled && (
@@ -224,7 +225,7 @@ export function Settlement({
         </details>
       )}
 
-      {error !== null && <p className="text-sm text-danger">{error}</p>}
+      {error !== null && <p className="text-sm text-destructive">{error}</p>}
     </div>
   );
 }
