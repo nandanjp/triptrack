@@ -51,15 +51,14 @@ jobs:
         run: node src/db/migrate.ts
 
       - name: Test
-        run: npm test
-
-      - name: Fail if the database tests skipped
-        # A missing DATABASE_URL skips them rather than failing, which is right
-        # locally and wrong here. Without this guard CI could go green having
-        # proven nothing about the queries.
+        # A missing DATABASE_URL skips the database-backed tests rather than
+        # failing, which is right locally and wrong here: CI could otherwise go
+        # green having proven nothing about the queries. Run once, then inspect
+        # the summary.
         run: |
           set -euo pipefail
-          if npm test 2>&1 | grep -qE "^. skipped [1-9]"; then
+          npm test 2>&1 | tee test-output.txt
+          if grep -qE "^. skipped [1-9]" test-output.txt; then
             echo "::error::database-backed tests skipped in CI"
             exit 1
           fi

@@ -31,6 +31,8 @@ browser
   └── Traefik (Cloudflare Tunnel, triptrack.nandan-hl.dev)
         └── TripTrack  ── Hono on Node, :8080
               ├── /api/auth/*  register · login · logout · me
+              ├── /api/trips/* trips · participants · invite issuing
+              ├── /api/invites/*  preview (public) · accept · revoke
               ├── /api/*       404 as JSON, never the SPA
               ├── /*           React SPA, served as static assets
               └── /health*     startup · readiness · liveness
@@ -89,6 +91,11 @@ are read once at process start, so rotating the signing secret requires a
 `kubectl rollout restart` rather than taking effect on its own; and rotating it
 invalidates every live session. See ADR-0005.
 
+**Only a hash of each invite token is stored**, so a database leak yields no working
+invites. The plaintext is returned once, when the link is issued, and is not retrievable
+afterwards. Unlike a password this needs no salt or KDF: the token is 256 bits of CSPRNG
+output, so there is no guessable input space to slow an attacker down over.
+
 **Disposable:** the pod and its filesystem. `/tmp` is an `emptyDir`.
 
 **Photo bytes have no home yet** — the decision is deliberately deferred to the photo
@@ -141,8 +148,15 @@ consumer:
   degraded feature into a total outage.
 - **No offline support and no concurrent-edit merging.** Both deferred in `DOMAIN.md`.
   Offline is the expensive one to add later, since it changes the sync model.
-- **Invite links are bearer credentials.** Anyone holding one gains trip access, so
-  expiry and revocation are part of the step that introduces them. See ADR-0005.
+- **Invite links are bearer credentials.** Anyone holding one gains trip access. Expiry
+  (14 days), revocation and single use are implemented, and each link is bound to one
+  participant seat — but a link pasted into a group chat is still a link anyone in that
+  chat can use until it is claimed or revoked. See ADR-0005.
+- **Trip visibility is enforced per request, not by a row-level policy.** Every handler
+  resolves membership before touching trip data, and answers 404 rather than 403 so
+  existence does not leak. It is correct but it is application-level, so a handler that
+  forgets the check has no backstop. A future step adding many endpoints should consider
+  pushing this into the query layer.
 - **There is no way to revoke one stolen session.** Sessions are signed cookies with no
   server-side table, so the only remedy is rotating `SESSION_SECRET`, which signs
   everyone out. A sessions table is an additive change if that stops being acceptable.
