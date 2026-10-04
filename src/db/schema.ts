@@ -1,6 +1,8 @@
 import { relations, sql } from "drizzle-orm";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import {
+  boolean,
+  check,
   date,
   doublePrecision,
   foreignKey,
@@ -408,3 +410,91 @@ export const tripDayBookings = pgTable(
 );
 
 export type Booking = typeof bookings.$inferSelect;
+
+/**
+ * A cost. Exactly one parent is set, or none — a trip-level cost belonging to
+ * no day, such as a flight bought in March for an October trip. That is what
+ * makes the aggregate work from a single place:
+ *
+ *   daily spend = expenses on that day
+ *   trip total  = booking expenses + day expenses + unparented expenses
+ *
+ * `paidByParticipantId` is who *fronted the cash*, which is a different
+ * question from whose consumption it was. Both are needed, and conflating
+ * them is what makes settlement impossible later.
+ *
+ * Parents are `set null` rather than cascading: deleting a day must not
+ * silently delete money and change the trip total. The expense survives as an
+ * unparented trip cost.
+ */
+export const expenses = pgTable(
+  "expenses",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tripId: uuid("trip_id")
+      .notNull()
+      .references(() => trips.id, { onDelete: "cascade" }),
+    dayId: uuid("day_id").references(() => tripDays.id, { onDelete: "set null" }),
+    bookingId: uuid("booking_id").references(() => bookings.id, { onDelete: "set null" }),
+    entryId: uuid("entry_id").references(() => dayEntries.id, { onDelete: "set null" }),
+    description: text("description").notNull(),
+    /**
+     * Integer minor units (D11). The exponent comes from the currency code —
+     * KRW has none, CAD has two — and is a presentation concern. Negative is
+     * a refund, which is how a cancellation is recorded against a booking.
+     */
+    amountMinor: integer("amount_minor").notNull(),
+    /** ISO 4217, uppercase. Totals group by this rather than converting (D12). */
+    currency: text("currency").notNull(),
+    paidByParticipantId: uuid("paid_by_participant_id")
+      .notNull()
+      .references(() => tripParticipants.id, { onDelete: "restrict" }),
+    splitMode: text("split_mode").$type<"equal" | "exact">().notNull().default("equal"),
+    /** Visible only to the payer, carries no shares, outside group settlement. */
+    isPrivate: boolean("is_private").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("expenses_trip_idx").on(table.tripId),
+    index("expenses_day_idx").on(table.dayId),
+    index("expenses_booking_idx").on(table.bookingId),
+    // Unlike a booking's kind, this invariant *is* expressible in the schema,
+    // so it is enforced there rather than only in the handlers.
+    check(
+      "expenses_single_parent",
+      sql`(case when day_id is null then 0 else 1 end
+         + case when booking_id is null then 0 else 1 end
+         + case when entry_id is null then 0 else 1 end) <= 1`,
+    ),
+    check("expenses_amount_nonzero", sql`amount_minor <> 0`),
+    check("expenses_currency_format", sql`currency ~ '^[A-Z]{3}$'`),
+  ],
+);
+
+/**
+ * Who consumed an expense, and how much of it. Balances are derived from
+ * these and never stored — `sum(paid) − sum(owed)` per participant — because
+ * a stored running balance is how these systems go quietly wrong.
+ *
+ * A zero share is not stored: owing nothing and not being involved coincide.
+ */
+export const expenseShares = pgTable(
+  "expense_shares",
+  {
+    expenseId: uuid("expense_id")
+      .notNull()
+      .references(() => expenses.id, { onDelete: "cascade" }),
+    participantId: uuid("participant_id")
+      .notNull()
+      .references(() => tripParticipants.id, { onDelete: "cascade" }),
+    amountMinor: integer("amount_minor").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.expenseId, table.participantId] }),
+    index("expense_shares_participant_idx").on(table.participantId),
+    check("expense_shares_amount_nonzero", sql`amount_minor <> 0`),
+  ],
+);
+
+export type Expense = typeof expenses.$inferSelect;
+export type ExpenseShare = typeof expenseShares.$inferSelect;

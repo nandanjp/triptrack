@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, type TripDetail as Trip } from "./api.ts";
 import { Bookings } from "./Bookings.tsx";
+import { Expenses } from "./Expenses.tsx";
 import { Itinerary } from "./Itinerary.tsx";
 import { navigate } from "./routing.ts";
 
@@ -175,7 +176,16 @@ export function TripDetail({ tripId }: { tripId: string }) {
         onChange={bump}
       />
 
-      <p style={{ color: "#666", marginTop: "2rem" }}>Expenses arrive in step 6.</p>
+      <hr style={{ margin: "2rem 0 1rem", border: 0, borderTop: "1px solid #eee" }} />
+      <Expenses
+        tripId={trip.id}
+        participants={trip.participants}
+        myParticipantId={trip.myParticipantId}
+        version={version}
+        onChange={bump}
+      />
+
+      <p style={{ color: "#666", marginTop: "2rem" }}>Settlement arrives in step 7.</p>
     </section>
   );
 }

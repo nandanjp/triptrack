@@ -1,6 +1,6 @@
-import { zValidator } from "@hono/zod-validator";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
+import { jsonBody } from "../http/validate.ts";
 import { z } from "zod";
 import { getDb } from "../db/client.ts";
 import { isUniqueViolation } from "../db/errors.ts";
@@ -22,7 +22,7 @@ const credentials = z.object({
 const normaliseEmail = (email: string): string => email.trim().toLowerCase();
 
 export const authRoutes = new Hono()
-  .post("/register", zValidator("json", credentials), async (c) => {
+  .post("/register", jsonBody(credentials), async (c) => {
     const { email, password } = c.req.valid("json");
     const passwordHash = await hashPassword(password);
 
@@ -44,7 +44,7 @@ export const authRoutes = new Hono()
     }
   })
 
-  .post("/login", zValidator("json", credentials), async (c) => {
+  .post("/login", jsonBody(credentials), async (c) => {
     const { email, password } = c.req.valid("json");
 
     const [user] = await getDb()

@@ -1,6 +1,6 @@
-import { zValidator } from "@hono/zod-validator";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { Hono } from "hono";
+import { jsonBody } from "../http/validate.ts";
 import { z } from "zod";
 import { requireSession, type AuthenticatedEnv } from "../auth/session.ts";
 import { publicScheme } from "../config.ts";
@@ -66,7 +66,7 @@ const addParticipant = z.object({
 export const tripRoutes = new Hono<AuthenticatedEnv>()
   .use("*", requireSession())
 
-  .post("/", zValidator("json", createTrip), async (c) => {
+  .post("/", jsonBody(createTrip), async (c) => {
     const input = c.req.valid("json");
     const userId = c.get("userId");
 
@@ -166,10 +166,17 @@ export const tripRoutes = new Hono<AuthenticatedEnv>()
       .where(eq(tripParticipants.tripId, tripId))
       .orderBy(tripParticipants.createdAt);
 
-    return c.json({ ...trip, role: membership.role, participants });
+    // Which seat is the caller's, so the client can default "paid by" to it
+    // without being told who occupies the others.
+    return c.json({
+      ...trip,
+      role: membership.role,
+      myParticipantId: membership.participantId,
+      participants,
+    });
   })
 
-  .patch("/:tripId", zValidator("json", updateTrip), async (c) => {
+  .patch("/:tripId", jsonBody(updateTrip), async (c) => {
     const tripId = c.req.param("tripId");
     const membership = await membershipFor(tripId, c.get("userId"));
     if (membership === undefined) return tripNotFound(c);
@@ -209,7 +216,7 @@ export const tripRoutes = new Hono<AuthenticatedEnv>()
     return c.body(null, 204);
   })
 
-  .post("/:tripId/participants", zValidator("json", addParticipant), async (c) => {
+  .post("/:tripId/participants", jsonBody(addParticipant), async (c) => {
     const tripId = c.req.param("tripId");
     const membership = await membershipFor(tripId, c.get("userId"));
     if (membership === undefined) return tripNotFound(c);
@@ -263,7 +270,7 @@ export const tripRoutes = new Hono<AuthenticatedEnv>()
    * gets is their own to fix, and a member should not need an owner to
    * correct their name. Changing a *role* is owner-only.
    */
-  .patch("/:tripId/participants/:participantId", zValidator("json", patchParticipant), async (c) => {
+  .patch("/:tripId/participants/:participantId", jsonBody(patchParticipant), async (c) => {
     const tripId = c.req.param("tripId");
     const participantId = c.req.param("participantId");
     const userId = c.get("userId");

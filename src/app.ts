@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { authRoutes } from "./auth/routes.ts";
 import { bookingRoutes } from "./bookings/routes.ts";
+import { expenseRoutes } from "./expenses/routes.ts";
 import { itineraryRoutes } from "./itinerary/routes.ts";
 import { inviteRoutes } from "./trips/invite-routes.ts";
 import { tripRoutes } from "./trips/routes.ts";
@@ -31,6 +32,7 @@ export function createApp(options: AppOptions = {}): Hono {
   app.route("/api/trips", tripRoutes);
   app.route("/api/trips", itineraryRoutes);
   app.route("/api/trips", bookingRoutes);
+  app.route("/api/trips", expenseRoutes);
   // Mounted outside /api/trips because the preview must work when signed out.
   app.route("/api/invites", inviteRoutes);
 

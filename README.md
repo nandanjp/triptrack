@@ -24,7 +24,7 @@ watched working.
 - [x] **4 — Itinerary.** Trip locations, days keyed by `day_number` with bulk date
       shift, entries with the `planned → done | skipped | cancelled` lifecycle and
       `replaced_by`, and materialised per-entry attendance.
-- [ ] **5 — Bookings.** Lodging, transit and event bookings as one registry.
+- [x] **5 — Bookings.** Lodging, transit and event bookings as one registry.
       Per-night lodging selection on a day, and many-to-many transit and event links.
 - [ ] **6 — Expenses.** Per-day, per-booking and per-entry costs with shares, the
       payer-holds-remainder rule, private spend, and totals grouped by currency.
