@@ -51,6 +51,12 @@ API ship as one artifact and cannot version-skew against each other. Both sides 
 the same TypeScript types directly — no codegen, no generated client. There is no
 separate frontend deployment.
 
+The interface is Tailwind v4 with components owned in `web/src/ui`, written in shadcn's
+idiom over Radix primitives. Colour and type are custom properties mapped onto Tailwind's
+scale, so light and dark are two palettes rather than an inversion and application code
+carries no `dark:` prefixes. Fonts are self-hosted, which keeps every request on the
+render path inside the cluster. See ADR-0010.
+
 ## Boundaries
 
 **Owns:** trips, participants, locations, days, entries, bookings, photos metadata,
@@ -194,6 +200,9 @@ consumer:
   (14 days), revocation and single use are implemented, and each link is bound to one
   participant seat — but a link pasted into a group chat is still a link anyone in that
   chat can use until it is claimed or revoked. See ADR-0005.
+- **The interface has no automated tests.** The suite covers the server thoroughly and
+  the components not at all — typechecking and a successful build are the only guards.
+  That is why the design change touched presentation only and left behaviour alone.
 - **There is no audit trail on an expense, and reopening a settled trip leaves no trace.**
   An edit replaces the shares outright, and a settled trip is read-only only while its
   owner leaves it settled. Locking bounds the damage; it does not record history. This is
@@ -247,3 +256,4 @@ here.
 | 0007 | Bulk day moves pass through non-colliding values |
 | 0008 | An expense edit that moves money must restate the split |
 | 0009 | Derived balances, greedy simplification, lock rather than version |
+| 0010 | Tailwind with hand-owned shadcn-style components and a token layer |

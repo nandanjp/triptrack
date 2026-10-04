@@ -3,7 +3,20 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="description" content="Plan a trip, live it and log it in one place." />
     <title>TripTrack</title>
+    <script>
+      // Applied before first paint so a dark-mode reload does not flash white.
+      try {
+        var stored = localStorage.getItem("triptrack-theme");
+        var dark =
+          stored === "dark" ||
+          ((stored === null || stored === "system") &&
+            window.matchMedia("(prefers-color-scheme: dark)").matches);
+        if (dark) document.documentElement.classList.add("dark");
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>
