@@ -3,6 +3,7 @@ import { api, type TripDetail as Trip } from "./api.ts";
 import { Bookings } from "./Bookings.tsx";
 import { Expenses } from "./Expenses.tsx";
 import { Itinerary } from "./Itinerary.tsx";
+import { Settlement } from "./Settlement.tsx";
 import { navigate } from "./routing.ts";
 
 export function TripDetail({ tripId }: { tripId: string }) {
@@ -185,7 +186,10 @@ export function TripDetail({ tripId }: { tripId: string }) {
         onChange={bump}
       />
 
-      <p style={{ color: "#666", marginTop: "2rem" }}>Settlement arrives in step 7.</p>
+      <hr style={{ margin: "2rem 0 1rem", border: 0, borderTop: "1px solid #eee" }} />
+      <Settlement tripId={trip.id} isOwner={isOwner} version={version} onChange={bump} />
+
+      <p style={{ color: "#666", marginTop: "2rem" }}>Photos arrive in step 8.</p>
     </section>
   );
 }
