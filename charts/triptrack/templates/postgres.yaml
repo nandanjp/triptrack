@@ -85,6 +85,13 @@ spec:
             readOnlyRootFilesystem: false
             capabilities:
               drop: ["ALL"]
+            # With no-new-privileges set, AppArmor stacks the containerd profile
+            # as "cri-containerd.apparmor.d//&unconfined", which that profile's
+            # own signal rule no longer matches. Postgres processes then cannot
+            # signal each other: the checkpointer is never woken, recovery never
+            # finishes and the liveness probe kills the server every minute.
+            appArmorProfile:
+              type: Unconfined
   volumeClaimTemplates:
     - metadata:
         name: data
